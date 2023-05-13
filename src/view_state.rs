@@ -3,12 +3,12 @@ use crate::rtp_packets_table;
 use eframe::egui;
 
 #[derive(Default)]
-pub struct MediaStreamAnalyzerViewState {
+pub struct ViewState {
     rtp_packets_table: rtp_packets_table::RtpPacketsTable,
     is_rtp_packets_table_visible: bool,
 }
 
-impl eframe::App for MediaStreamAnalyzerViewState {
+impl eframe::App for ViewState {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::TopBottomPanel::top("menu bar").show(ctx, |ui| {
             let table_button_text = if self.is_rtp_packets_table_visible {
