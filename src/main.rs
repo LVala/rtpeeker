@@ -14,7 +14,7 @@ fn main() -> Result<(), eframe::Error> {
         ..Default::default()
     };
     eframe::run_native(
-        "My egui App",
+        "Media stream analyzer",
         options,
         Box::new(|_cc| Box::<MediaStreamAnalyzerViewState>::default()),
     )
