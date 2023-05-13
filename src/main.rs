@@ -14,7 +14,7 @@ fn main() -> Result<(), eframe::Error> {
         ..Default::default()
     };
     eframe::run_native(
-        "Media stream analyzer",
+        "Media Stream Analyzer",
         options,
         Box::new(|_cc| Box::<MediaStreamAnalyzerViewState>::default()),
     )
