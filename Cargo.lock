@@ -1295,10 +1295,10 @@ dependencies = [
 name = "media_stream_analyzer"
 version = "0.1.0"
 dependencies = [
+ "bytes",
  "eframe",
  "egui_extras",
  "env_logger",
- "bytes",
  "etherparse",
  "pcap",
  "rtp",
