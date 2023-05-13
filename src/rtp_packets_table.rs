@@ -72,11 +72,10 @@ impl View for RtpPacketsTable {
 
         ui.separator();
 
-        // Leave room for the source code link after the table demo:
         use egui_extras::{Size, StripBuilder};
         StripBuilder::new(ui)
-            .size(Size::remainder().at_least(100.0)) // for the table
-            .size(Size::exact(10.0)) // for the source code link
+            .size(Size::remainder().at_least(100.0))
+            .size(Size::exact(10.0))
             .vertical(|mut strip| {
                 strip.cell(|ui| {
                     egui::ScrollArea::horizontal().show(ui, |ui| {
