@@ -1,6 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
-pub mod egui_traits;
 pub mod rtp_packets_table;
 pub mod rtp_sniffer;
 pub mod view_state;
