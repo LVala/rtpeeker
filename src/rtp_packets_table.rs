@@ -1,6 +1,8 @@
-use crate::egui_traits::{View, Window};
 use crate::rtp_sniffer::{rtp_from_file, RtpPacket};
 use eframe::egui;
+use eframe::egui::{Ui};
+use egui::Window;
+use egui_extras::{Column, Size, StripBuilder, TableBuilder};
 use std::path::Path;
 
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -15,64 +17,85 @@ impl Default for RtpPacketsTable {
         Self {
             scroll_to_row_slider: 0,
             scroll_to_row: None,
-            rtp_packets: rtp_from_file(Path::new("./pcap_examples/rtp.pcap")),
+            rtp_packets: Vec::new(),
         }
     }
 }
 
-impl Window for RtpPacketsTable {
+impl RtpPacketsTable {
     fn header(&self) -> &'static str {
         "☰ RTP packets"
     }
 
-    fn show(&mut self, ctx: &egui::Context, open: &mut bool) {
-        egui::Window::new(self.header())
+    pub fn show(&mut self, ctx: &egui::Context, open: &mut bool, picked_path: &mut Option<String>) {
+        self.rtp_packets_from_pcap(picked_path);
+        Window::new(self.header())
             .open(open)
             .resizable(true)
             .default_width(1200.0)
             .show(ctx, |ui| {
-                use View as _;
                 self.ui(ui);
             });
     }
-}
 
-impl View for RtpPacketsTable {
-    fn ui(&mut self, ui: &mut egui::Ui) {
+    fn ui(&mut self, ui: &mut Ui) {
         ui.vertical(|ui| {
             ui.horizontal(|ui| {
-                if ui.button("Sort by sequence number").clicked() {
-                    self.rtp_packets.sort_by(|a, b| {
-                        a.rtp_header
-                            .sequence_number
-                            .partial_cmp(&b.rtp_header.sequence_number)
-                            .unwrap()
-                    })
-                }
-                if ui.button("Sort by time stamp").clicked() {
-                    self.rtp_packets.sort_by(|a, b| {
-                        a.rtp_header
-                            .timestamp
-                            .partial_cmp(&b.rtp_header.timestamp)
-                            .unwrap()
-                    })
-                }
+                self.sort_by_sequence_number_button(ui);
+                self.sort_by_time_stamp_button(ui);
             });
 
-            let slider_response = ui.add(
-                egui::Slider::new(&mut self.scroll_to_row_slider, 0..=self.rtp_packets.len())
-                    .logarithmic(true)
-                    .text("Row to scroll to"),
-            );
-            if slider_response.changed() {
-                self.rtp_packets.len();
-                self.scroll_to_row = Some(self.scroll_to_row_slider);
-            }
+            self.slider(ui);
         });
 
         ui.separator();
 
-        use egui_extras::{Size, StripBuilder};
+        self.table(ui);
+    }
+}
+
+impl RtpPacketsTable {
+    fn rtp_packets_from_pcap(&mut self, picked_path: &mut Option<String>) {
+        if let Some(path) = picked_path {
+            self.rtp_packets = rtp_from_file(Path::new(path));
+        }
+    }
+
+    fn sort_by_sequence_number_button(&mut self, ui: &mut Ui) {
+        if ui.button("Sort by sequence number").clicked() {
+            self.rtp_packets.sort_by(|a, b| {
+                a.rtp_header
+                    .sequence_number
+                    .partial_cmp(&b.rtp_header.sequence_number)
+                    .unwrap()
+            })
+        }
+    }
+
+    fn sort_by_time_stamp_button(&mut self, ui: &mut Ui) {
+        if ui.button("Sort by time stamp").clicked() {
+            self.rtp_packets.sort_by(|a, b| {
+                a.rtp_header
+                    .timestamp
+                    .partial_cmp(&b.rtp_header.timestamp)
+                    .unwrap()
+            })
+        }
+    }
+
+    fn slider(&mut self, ui: &mut Ui) {
+        let slider_response = ui.add(
+            egui::Slider::new(&mut self.scroll_to_row_slider, 0..=self.rtp_packets.len())
+                .logarithmic(true)
+                .text("Row to scroll to"),
+        );
+        if slider_response.changed() {
+            self.rtp_packets.len();
+            self.scroll_to_row = Some(self.scroll_to_row_slider);
+        }
+    }
+
+    fn table(&mut self, ui: &mut Ui) {
         StripBuilder::new(ui)
             .size(Size::remainder().at_least(100.0))
             .size(Size::exact(10.0))
@@ -84,12 +107,7 @@ impl View for RtpPacketsTable {
                 });
             });
     }
-}
-
-impl RtpPacketsTable {
-    fn table_ui(&mut self, ui: &mut egui::Ui) {
-        use egui_extras::{Column, TableBuilder};
-
+    fn table_ui(&mut self, ui: &mut Ui) {
         let text_height = egui::TextStyle::Body.resolve(ui.style()).size;
 
         let mut table = TableBuilder::new(ui)
