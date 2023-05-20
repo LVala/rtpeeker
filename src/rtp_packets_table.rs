@@ -1,6 +1,6 @@
 use crate::rtp_sniffer::{rtp_from_file, RtpPacket};
 use eframe::egui;
-use eframe::egui::{Ui};
+use eframe::egui::Ui;
 use egui::Window;
 use egui_extras::{Column, Size, StripBuilder, TableBuilder};
 use std::path::Path;
