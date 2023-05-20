@@ -10,17 +10,27 @@ use rtp::{header::Header, packet::Packet};
 use std::net::{IpAddr::V4, Ipv4Addr, SocketAddr};
 use std::path::Path;
 use webrtc_util::marshal::Unmarshal;
+use crate::mappers::payload_mapper;
+
+#[derive(Debug)]
+pub struct PayloadType {
+    pub id: u8,
+    pub name: String,
+    pub clock_rate_in_hz: Option<u32>,
+}
 
 #[derive(Debug)]
 pub struct RtpPacket {
     pub destination_addr: SocketAddr,
     pub source_addr: SocketAddr,
     pub rtp_header: Header,
+    pub payload_type: PayloadType,
     pub payload: Bytes,
+    pub arrival_time: f64,
 }
 
 impl RtpPacket {
-    pub fn build(mut packet_headers: PacketHeaders) -> Option<Self> {
+    pub fn build(mut packet_headers: PacketHeaders, arrival_time: f64) -> Option<Self> {
         match packet_headers {
             // FIXME: RTP can be also transported via TCP
             PacketHeaders {
@@ -34,8 +44,10 @@ impl RtpPacket {
                     let converted_packet = Self {
                         source_addr,
                         destination_addr,
+                        payload_type: payload_mapper::from(&rtp_packet.header.payload_type),
                         rtp_header: rtp_packet.header,
                         payload: rtp_packet.payload,
+                        arrival_time,
                     };
                     Some(converted_packet)
                 } else {
@@ -76,10 +88,16 @@ pub fn rtp_from_file(file_name: &Path) -> Vec<RtpPacket> {
 
     while let Ok(raw_packet) = cap.next_packet() {
         let packet = PacketHeaders::from_ethernet_slice(raw_packet.data).unwrap();
-        if let Some(rtp_packet) = RtpPacket::build(packet) {
+        let arrival_time = parse_arrival_time(raw_packet);
+        if let Some(rtp_packet) = RtpPacket::build(packet, arrival_time) {
             packets.push(rtp_packet)
         }
     }
 
     packets
+}
+
+fn parse_arrival_time(raw_packet: pcap::Packet) -> f64 {
+    let float_string: String = format!("{}.{}", raw_packet.header.ts.tv_sec, raw_packet.header.ts.tv_usec);
+    float_string.parse().unwrap()
 }

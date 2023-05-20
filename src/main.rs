@@ -3,6 +3,9 @@
 pub mod rtp_packets_table;
 pub mod rtp_sniffer;
 pub mod view_state;
+pub mod mappers;
+pub mod analysis;
+
 use eframe::egui;
 use view_state::ViewState;
 
