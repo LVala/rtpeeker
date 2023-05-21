@@ -14,7 +14,7 @@ pub enum TransportProtocol {
 }
 
 #[derive(Debug)]
-pub struct Packet {
+pub struct RawPacket {
     pub payload: Vec<u8>,
     pub timestamp: Duration,
     pub length: u32,
@@ -23,7 +23,7 @@ pub struct Packet {
     pub transport_protocol: TransportProtocol,
 }
 
-impl Packet {
+impl RawPacket {
     pub fn build(raw_packet: &pcap::Packet) -> Option<Self> {
         let packet = PacketHeaders::from_ethernet_slice(raw_packet.data).unwrap();
         if let PacketHeaders {
@@ -40,7 +40,7 @@ impl Packet {
                 (raw_packet.header.ts.tv_usec * 1000).try_into().unwrap(),
             );
 
-            Some(Packet {
+            Some(Self {
                 payload: packet.payload.to_vec(), // FIXME: borrow checker won this time
                 length: raw_packet.header.len,
                 timestamp,

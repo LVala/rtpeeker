@@ -1,9 +1,11 @@
-use packet::Packet;
 pub use pcap::Device;
 use pcap::{Activated, Active, Capture, Offline};
+use raw::RawPacket;
 use std::path::Path;
 
-mod packet;
+pub mod raw;
+pub mod rtcp;
+pub mod rtp;
 
 pub struct Sniffer<T: pcap::State> {
     capture: Capture<T>,
@@ -26,9 +28,9 @@ impl Sniffer<Active> {
 }
 
 impl<T: Activated> Sniffer<T> {
-    pub fn next_packet(&mut self) -> Option<Packet> {
+    pub fn next_packet(&mut self) -> Option<RawPacket> {
         if let Ok(packet) = self.capture.next_packet() {
-            Packet::build(&packet)
+            RawPacket::build(&packet)
         } else {
             None
         }
