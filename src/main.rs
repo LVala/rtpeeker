@@ -22,11 +22,13 @@ use std::path::Path;
 // }
 
 fn main() {
+    let mut packets = Vec::new();
+
     let path = Path::new("./pcap_examples/rtp.pcap");
     let mut sniffer = Sniffer::from_file(path);
-    loop {
-        if let Some(packet) = sniffer.next_packet() {
-            // println!("{:?}", packet);
-        }
+
+    while let Some(packet) = sniffer.next_packet() {
+        println!("{:?}", packet);
+        packets.push(packet);
     }
 }
