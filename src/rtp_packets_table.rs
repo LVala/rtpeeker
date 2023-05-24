@@ -2,11 +2,8 @@ use eframe::egui;
 use eframe::egui::Ui;
 use egui::Window;
 use egui_extras::{Column, Size, StripBuilder, TableBuilder};
-use std::path::Path;
 use crate::sniffer::raw::RawPacket;
-use crate::sniffer::rtcp::RtcpPacket;
 use crate::sniffer::rtp::RtpPacket;
-use crate::sniffer::Sniffer;
 
 
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -14,39 +11,30 @@ pub struct RtpPacketsTable<'a> {
     scroll_to_row_slider: usize,
     scroll_to_row: Option<usize>,
     rtp_packets: Vec<RtpPacket<'a>>,
-    packets: Vec<RawPacket>,
 }
 
-// struct _RtpPacketsTable<'a> {
-//     packets: Vec<RawPacket>,
-// }
-//
-// impl Default for _RtpPacketsTable {
-//     fn default() -> Self {
-//         Self {
-//             packets: Vec::new(),
-//         }
-//     }
-// }
+impl RtpPacketsTable<'_> {
+    pub fn new(raw_packets: &Vec<RawPacket>) -> Self {
+        let mut rtp_packets = Vec::new();
 
-impl<'a> Default for RtpPacketsTable<'a> {
-    fn default() -> Self {
+        for packet in raw_packets.iter() {
+            if let Some(rtp_packet) = RtpPacket::build(packet) {
+              rtp_packets.push(rtp_packet);
+            }
+        }
+
         Self {
-            scroll_to_row_slider: 0,
+            rtp_packets,
             scroll_to_row: None,
-            rtp_packets: Vec::new(),
-            packets: Vec::new(),
+            scroll_to_row_slider: 0
         }
     }
-}
 
-impl<'a> RtpPacketsTable<'a> {
     fn header(&self) -> &'static str {
         "☰ RTP packets"
     }
 
     pub fn show(&mut self, ctx: &egui::Context, open: &mut bool, picked_path: &mut Option<String>) {
-        self.rtp_packets_from_pcap(picked_path);
         Window::new(self.header())
             .open(open)
             .resizable(true)
@@ -69,24 +57,6 @@ impl<'a> RtpPacketsTable<'a> {
         ui.separator();
 
         self.table(ui);
-    }
-}
-
-impl<'a> RtpPacketsTable<'a> {
-    fn rtp_packets_from_pcap(&mut self, picked_path: &mut Option<String>) {
-        if let Some(path) = picked_path {
-            let mut sniffer = Sniffer::from_file(Path::new(path));
-
-            while let Some(packet) = sniffer.next_packet() {
-                self.packets.push(packet);
-            }
-
-            for packet in self.packets.iter() {
-                if let Some(rtp_packet) = RtpPacket::build(packet) {
-                    self.rtp_packets.push(rtp_packet);
-                }
-            }
-        }
     }
 
     fn sort_by_sequence_number_button(&mut self, ui: &mut Ui) {

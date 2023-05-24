@@ -5,8 +5,6 @@ pub mod sniffer;
 pub mod view_state;
 use eframe::egui;
 use view_state::ViewState;
-use sniffer::{rtcp::RtcpPacket, rtp::RtpPacket, Sniffer};
-use std::path::Path;
 
 fn main() -> Result<(), eframe::Error> {
     let options = eframe::NativeOptions {
@@ -20,21 +18,3 @@ fn main() -> Result<(), eframe::Error> {
     )
 }
 
-// fn main() {
-//     let mut sniffer = Sniffer::from_file(path);
-//     let mut packets = Vec::new();
-//     let mut rtp_packets = Vec::new();
-//
-//     while let Some(packet) = sniffer.next_packet() {
-//         packets.push(packet);
-//     }
-//
-//     for packet in packets.iter() {
-//         if packet.destination_addr.port() == 5001 {
-//             RtcpPacket::build(packet);
-//         }
-//         if let Some(rtp_packet) = RtpPacket::build(packet) {
-//             rtp_packets.push(rtp_packet);
-//         }
-//     }
-// }

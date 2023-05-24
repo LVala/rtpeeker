@@ -1,25 +1,29 @@
-use crate::rtp_packets_table;
+use crate::rtp_packets_table::RtpPacketsTable;
 use eframe::egui;
 use eframe::egui::{Context, Ui};
+use std::path::Path;
+use crate::sniffer::{Sniffer, raw::RawPacket};
+use crate::sniffer::rtp::RtpPacket;
 
-#[derive(Default)]
 pub struct ViewState<'a> {
-    rtp_packets_table: rtp_packets_table::RtpPacketsTable<'a>,
+    rtp_packets_table: RtpPacketsTable<'a>,
     is_rtp_packets_table_visible: bool,
     picked_path: Option<String>,
+    packets: Vec<RawPacket>
 }
 
-impl<'a> eframe::App for ViewState<'a> {
+impl Default for ViewState<'_> {
+    fn default() -> Self {
+        let rtp_packets_table = Vec::<RtpPacket>::new();
+
+        // TODO sensible default
+
+    }
+}
+
+impl eframe::App for ViewState<'_> {
     fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
         egui::TopBottomPanel::top("menu bar").show(ctx, |ui| {
-
-            // use egui::plot::{Line, Plot, PlotPoints};
-            // let sin: PlotPoints = (0..1000).map(|i| {
-            //     let x = i as f64 * 0.01;
-            //     [x, x.sin()]
-            // }).collect();
-            // let line = Line::new(sin);
-            // Plot::new("my_plot").view_aspect(2.0).show(ui, |plot_ui| plot_ui.line(line));
 
             ui.horizontal(|ui| {
                 self.open_pcap_file_button(ui);
@@ -33,7 +37,19 @@ impl<'a> eframe::App for ViewState<'a> {
     }
 }
 
-impl<'a> ViewState<'a> {
+impl ViewState<'_> {
+    fn new(&mut self) {
+        // TODO instead of this function, fill up the self.packets when 
+        // path is passed
+        if let Some(path) = self.picked_path {
+            let mut sniffer = Sniffer::from_file(Path::new(&path));
+
+            while let Some(packet) = sniffer.next_packet() {
+                self.packets.push(packet);
+            }
+        } 
+    }
+
     fn open_pcap_file_button(&mut self, ui: &mut Ui) {
         if ui.button("Open pcap file").clicked() {
             if let Some(path) = rfd::FileDialog::new().pick_file() {
