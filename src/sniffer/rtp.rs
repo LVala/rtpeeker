@@ -4,8 +4,8 @@ use webrtc_util::marshal::Unmarshal;
 
 #[derive(Debug)]
 pub struct RtpPacket<'a> {
-    pub raw_packet: &'a RawPacket,
     pub packet: Packet,
+    pub raw_packet: &'a RawPacket,
 }
 
 impl<'a> RtpPacket<'a> {
