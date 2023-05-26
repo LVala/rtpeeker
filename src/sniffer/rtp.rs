@@ -3,13 +3,13 @@ use rtp::packet::Packet;
 use webrtc_util::marshal::Unmarshal;
 
 #[derive(Debug)]
-pub struct RtpPacket<'a> {
+pub struct RtpPacket {
     pub packet: Packet,
-    pub raw_packet: &'a RawPacket,
+    pub raw_packet: RawPacket,
 }
 
-impl<'a> RtpPacket<'a> {
-    pub fn build(packet: &'a RawPacket) -> Option<Self> {
+impl RtpPacket {
+    pub fn build(packet: RawPacket) -> Option<Self> {
         let mut buffer: &[u8] = &packet.payload;
         if let Ok(rtp_packet) = Packet::unmarshal(&mut buffer) {
             let converted_packet = Self {

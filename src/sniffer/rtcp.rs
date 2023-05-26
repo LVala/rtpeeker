@@ -2,24 +2,20 @@ use super::raw::RawPacket;
 use rtcp::packet::{self, Packet};
 
 #[derive(Debug)]
-pub struct RtcpPacket<'a> {
-    pub raw_packet: &'a RawPacket,
-    pub packet: Box<dyn Packet + Send + Sync>,
+pub struct RtcpPacketGroup {
+    pub raw_packet: RawPacket,
+    pub packets: Vec<Box<dyn Packet + Send + Sync>>,
 }
 
-impl<'a> RtcpPacket<'a> {
-    pub fn rtcp_packets_from(packet: &'a RawPacket) -> Option<Vec<RtcpPacket<'a>>> {
+impl RtcpPacketGroup {
+    pub fn rtcp_packets_from(packet: RawPacket) -> Option<RtcpPacketGroup> {
         let mut buffer: &[u8] = &packet.payload;
-        if let Ok(packets) = packet::unmarshal(&mut buffer) {
-            let mut rtcp_packets = Vec::new();
-            for rtcp_packet in packets {
-                rtcp_packets.push(RtcpPacket {
-                    raw_packet: packet,
-                    packet: rtcp_packet,
-                })
-            }
-
-            Some(rtcp_packets)
+        if let Ok(rtcp_packets) = packet::unmarshal(&mut buffer) {
+            let rtcp_packet_group = Self {
+                raw_packet: packet,
+                packets: rtcp_packets,
+            };
+            Some(rtcp_packet_group)
         } else {
             None
         }

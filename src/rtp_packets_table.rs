@@ -1,42 +1,39 @@
+use crate::sniffer::rtp::RtpPacket;
 use eframe::egui;
 use eframe::egui::Ui;
 use egui::Window;
 use egui_extras::{Column, Size, StripBuilder, TableBuilder};
-use crate::sniffer::raw::RawPacket;
-use crate::sniffer::rtp::RtpPacket;
-
 
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct RtpPacketsTable<'a> {
     scroll_to_row_slider: usize,
     scroll_to_row: Option<usize>,
-    rtp_packets: Vec<RtpPacket<'a>>,
+    rtp_packets: Vec<&'a RtpPacket>,
 }
 
-impl RtpPacketsTable<'_> {
-    pub fn new(raw_packets: &Vec<RawPacket>) -> Self {
-        let mut rtp_packets = Vec::new();
-
-        for packet in raw_packets.iter() {
-            if let Some(rtp_packet) = RtpPacket::build(packet) {
-              rtp_packets.push(rtp_packet);
-            }
+impl<'a> RtpPacketsTable<'a> {
+    pub fn new(rtp_packets: &'a [RtpPacket]) -> Self {
+        let mut packets = Vec::new();
+        for rtp_packet in rtp_packets.iter() {
+            packets.push(rtp_packet);
         }
 
         Self {
-            rtp_packets,
+            rtp_packets: packets,
             scroll_to_row: None,
-            scroll_to_row_slider: 0
+            scroll_to_row_slider: 0,
         }
     }
+}
 
+impl RtpPacketsTable<'_> {
     fn header(&self) -> &'static str {
         "☰ RTP packets"
     }
 
-    pub fn show(&mut self, ctx: &egui::Context, open: &mut bool, picked_path: &mut Option<String>) {
+    pub fn show(&mut self, ctx: &egui::Context, mut open: bool) {
         Window::new(self.header())
-            .open(open)
+            .open(&mut open)
             .resizable(true)
             .default_width(1200.0)
             .show(ctx, |ui| {
@@ -61,8 +58,9 @@ impl RtpPacketsTable<'_> {
 
     fn sort_by_sequence_number_button(&mut self, ui: &mut Ui) {
         if ui.button("Sort by sequence number").clicked() {
-            self.rtp_packets.sort_by(|a, b| {
-                a.packet.header
+            self.rtp_packets.sort_by(|a, _b| {
+                a.packet
+                    .header
                     .sequence_number
                     .partial_cmp(&a.packet.header.sequence_number)
                     .unwrap()
@@ -72,8 +70,9 @@ impl RtpPacketsTable<'_> {
 
     fn sort_by_time_stamp_button(&mut self, ui: &mut Ui) {
         if ui.button("Sort by time stamp").clicked() {
-            self.rtp_packets.sort_by(|a, b| {
-                a.packet.header
+            self.rtp_packets.sort_by(|a, _b| {
+                a.packet
+                    .header
                     .timestamp
                     .partial_cmp(&a.packet.header.timestamp)
                     .unwrap()

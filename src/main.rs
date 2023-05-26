@@ -14,7 +14,6 @@ fn main() -> Result<(), eframe::Error> {
     eframe::run_native(
         "Media Stream Analyzer",
         options,
-        Box::new(|_cc| Box::<ViewState>::default()),
+        Box::new(|_cc| Box::new(ViewState::new())),
     )
 }
-
