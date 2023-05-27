@@ -1,4 +1,4 @@
-use crate::rtp_packets_table::RtpPacketsTable;
+use super::rtp_packets_table::RtpPacketsTable;
 use crate::sniffer::rtp::RtpPacket;
 use crate::sniffer::Sniffer;
 use eframe::egui;

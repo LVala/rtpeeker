@@ -1,10 +1,11 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
-pub mod rtp_packets_table;
+pub mod analysis;
+pub mod gui;
 pub mod sniffer;
-pub mod view_state;
+
 use eframe::egui;
-use view_state::ViewState;
+use gui::view_state::ViewState;
 
 fn main() -> Result<(), eframe::Error> {
     let options = eframe::NativeOptions {

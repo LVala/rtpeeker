@@ -1,4 +1,4 @@
-use crate::rtp_sniffer::RtpPacket;
+use crate::sniffer::rtp::RtpPacket;
 use std::{net::SocketAddr, time::Duration};
 
 #[derive(Debug)]
@@ -17,11 +17,11 @@ pub struct Stream<'a> {
 impl<'a> Stream<'a> {
     pub fn new(packet: &'a RtpPacket) -> Self {
         Self {
-            source_addr: packet.source_addr.clone(),
-            destination_addr: packet.destination_addr.clone(),
-            ssrc: packet.rtp_header.ssrc,
+            source_addr: packet.raw_packet.source_addr.clone(),
+            destination_addr: packet.raw_packet.destination_addr.clone(),
+            ssrc: packet.packet.header.ssrc,
             duration: Duration::new(0, 0),
-            payload_type: packet.rtp_header.payload_type,
+            payload_type: packet.packet.header.payload_type,
             lost_packets: 0,
             packets: vec![packet],
         }
@@ -54,7 +54,7 @@ impl<'a> Streams<'a> {
 
     pub fn add_packet(&mut self, packet: &'a RtpPacket) {
         for stream in self.streams.iter_mut() {
-            if stream.ssrc == packet.rtp_header.ssrc {
+            if stream.ssrc == packet.packet.header.ssrc {
                 stream.add_packet(packet);
                 return;
             }
