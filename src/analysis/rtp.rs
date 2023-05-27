@@ -1,4 +1,4 @@
-use crate::sniffer::rtp::RtpPacket;
+use crate::sniffer::rtp::{PayloadType, RtpPacket};
 use std::ops::Sub;
 use std::{net::SocketAddr, time::Duration};
 
@@ -8,7 +8,7 @@ pub struct Stream<'a> {
     pub destination_addr: SocketAddr,
     pub ssrc: u32,
     // start time?
-    // delta, jitter
+    // delta
     pub jitter: f64,
     lost_packets: usize,
     packets: Vec<&'a RtpPacket>,
@@ -40,6 +40,16 @@ impl<'a> Stream<'a> {
         self.lost_packets / self.packets.len() * 100
     }
 
+    pub fn payload_type(&self) -> &PayloadType {
+        let last_packet = self.packets.last().unwrap();
+        &last_packet.payload_type
+    }
+
+    pub fn duration(&self) -> Duration {
+        // TODO: implement
+        Duration::new(0, 0)
+    }
+
     fn calculate_jitter(&mut self, packet: &RtpPacket) {
         let last_packet = self.packets.last().unwrap();
         if let Some(clock_rate) = last_packet.payload_type.clock_rate_in_hz {
@@ -50,22 +60,18 @@ impl<'a> Stream<'a> {
 
             let unit_timestamp = 1.0 / clock_rate as f64;
 
-            let arrival_time_difference = packet
+            let arrival_time_difference_result = packet
                 .raw_packet
                 .timestamp
-                .sub(last_packet.raw_packet.timestamp)
-                .as_secs_f64();
+                .checked_sub(last_packet.raw_packet.timestamp);
 
-            let timestamp_difference = packet.packet.header.timestamp as f64 * unit_timestamp
-                - last_packet.packet.header.timestamp as f64 * unit_timestamp;
-            let d = arrival_time_difference - timestamp_difference;
-            self.jitter = self.jitter + (d - self.jitter) / 16.0;
+            if let Some(arrival_time_difference) = arrival_time_difference_result {
+                let timestamp_difference = packet.packet.header.timestamp as f64 * unit_timestamp
+                    - last_packet.packet.header.timestamp as f64 * unit_timestamp;
+                let d = arrival_time_difference.as_secs_f64() - timestamp_difference;
+                self.jitter = self.jitter + (d - self.jitter) / 16.0;
+            }
         }
-    }
-
-    pub fn duration(&self) -> Duration {
-        // TODO: implement
-        Duration::new(0, 0)
     }
 }
 
@@ -107,7 +113,6 @@ mod tests {
     use std::net::{IpAddr, Ipv4Addr, SocketAddr};
     use std::ops::Sub;
     use std::time::Duration;
-
 
     #[test]
     fn initial_jitter_is_0() {

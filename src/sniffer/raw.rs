@@ -37,7 +37,8 @@ impl RawPacket {
             let (source_addr, destination_addr) = convert_addr(&ip_header, &transport)?;
 
             let sec_duration = Duration::from_secs(raw_packet.header.ts.tv_sec.try_into().unwrap());
-            let micros_duration = Duration::from_micros(raw_packet.header.ts.tv_usec.try_into().unwrap());
+            let micros_duration =
+                Duration::from_micros(raw_packet.header.ts.tv_usec.try_into().unwrap());
 
             let duration = sec_duration.add(micros_duration);
             Some(Self {
