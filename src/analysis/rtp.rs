@@ -1,4 +1,4 @@
-use crate::rtp_sniffer::RtpPacket;
+use crate::sniffer::rtp::RtpPacket;
 use std::{net::SocketAddr, time::Duration};
 
 #[derive(Debug)]
@@ -17,9 +17,9 @@ pub struct Stream<'a> {
 impl<'a> Stream<'a> {
     pub fn new(packet: &'a RtpPacket) -> Self {
         Self {
-            source_addr: packet.source_addr.clone(),
-            destination_addr: packet.destination_addr.clone(),
-            ssrc: packet.rtp_header.ssrc,
+            source_addr: packet.raw_packet.source_addr.clone(),
+            destination_addr: packet.raw_packet.destination_addr.clone(),
+            ssrc: packet.packet.header.ssrc,
             duration: Duration::new(0, 0),
             jitter: 0.0,
             lost_packets: 0,
@@ -30,6 +30,14 @@ impl<'a> Stream<'a> {
     pub fn add_packet(&mut self, packet: &'a RtpPacket) {
         self.calculate_jitter(packet);
         self.packets.push(packet);
+    }
+
+    pub fn num_of_packets(&self) -> usize {
+        self.packets.len()
+    }
+
+    pub fn lost_packets_percentage(&self) -> usize {
+        self.lost_packets / self.packets.len()
     }
 
     fn calculate_jitter(&mut self, packet: &RtpPacket) {
@@ -48,14 +56,6 @@ impl<'a> Stream<'a> {
             self.jitter = self.jitter + (d - self.jitter) / 16.0;
         }
     }
-
-    pub fn num_of_packets(&self) -> usize {
-        self.packets.len()
-    }
-
-    pub fn lost_packets_percentage(&self) -> usize {
-        self.lost_packets / self.packets.len()
-    }
 }
 
 #[derive(Debug)]
@@ -72,7 +72,7 @@ impl<'a> Streams<'a> {
 
     pub fn add_packet(&mut self, packet: &'a RtpPacket) {
         for stream in self.streams.iter_mut() {
-            if stream.ssrc == packet.rtp_header.ssrc {
+            if stream.ssrc == packet.packet.header.ssrc {
                 stream.add_packet(packet);
                 return;
             }
@@ -89,6 +89,7 @@ mod tests {
     use crate::analysis::rtp::{Stream};
     use crate::mappers::payload_mapper;
     use crate::rtp_sniffer::RtpPacket;
+    use crate::sniffer::rtp::RtpPacket;
 
 
     #[test]

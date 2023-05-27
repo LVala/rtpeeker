@@ -1,13 +1,11 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
-pub mod rtp_packets_table;
-pub mod rtp_sniffer;
-pub mod view_state;
-pub mod mappers;
 pub mod analysis;
+pub mod gui;
+pub mod sniffer;
 
 use eframe::egui;
-use view_state::ViewState;
+use gui::view_state::ViewState;
 
 fn main() -> Result<(), eframe::Error> {
     let options = eframe::NativeOptions {
@@ -17,6 +15,6 @@ fn main() -> Result<(), eframe::Error> {
     eframe::run_native(
         "Media Stream Analyzer",
         options,
-        Box::new(|_cc| Box::<ViewState>::default()),
+        Box::new(|_cc| Box::new(ViewState::new())),
     )
 }

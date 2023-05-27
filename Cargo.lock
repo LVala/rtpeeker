@@ -1384,12 +1384,12 @@ dependencies = [
 name = "media_stream_analyzer"
 version = "0.1.0"
 dependencies = [
- "bytes",
  "eframe",
  "egui_extras",
  "etherparse",
  "pcap",
  "rfd",
+ "rtcp",
  "rtp",
  "webrtc-util",
 ]
@@ -1912,6 +1912,17 @@ dependencies = [
  "wasm-bindgen-futures",
  "web-sys",
  "windows 0.44.0",
+]
+
+[[package]]
+name = "rtcp"
+version = "0.7.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1919efd6d4a6a85d13388f9487549bb8e359f17198cc03ffd72f79b553873691"
+dependencies = [
+ "bytes",
+ "thiserror",
+ "webrtc-util",
 ]
 
 [[package]]

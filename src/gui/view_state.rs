@@ -1,12 +1,13 @@
-use crate::rtp_packets_table;
+use super::rtp_packets_table::RtpPacketsTable;
+use crate::sniffer::rtp::RtpPacket;
+use crate::sniffer::Sniffer;
 use eframe::egui;
 use eframe::egui::{Context, Ui};
+use std::path::Path;
 
-#[derive(Default)]
 pub struct ViewState {
-    rtp_packets_table: rtp_packets_table::RtpPacketsTable,
     is_rtp_packets_table_visible: bool,
-    picked_path: Option<String>,
+    rtp_packets: Vec<RtpPacket>,
 }
 
 impl eframe::App for ViewState {
@@ -25,10 +26,24 @@ impl eframe::App for ViewState {
 }
 
 impl ViewState {
+    pub fn new() -> Self {
+        Self {
+            is_rtp_packets_table_visible: false,
+            rtp_packets: Vec::new(),
+        }
+    }
+
     fn open_pcap_file_button(&mut self, ui: &mut Ui) {
         if ui.button("Open pcap file").clicked() {
             if let Some(path) = rfd::FileDialog::new().pick_file() {
-                self.picked_path = Some(path.display().to_string());
+                let path = path.display().to_string();
+                let path = Path::new(&path);
+                let mut sniffer = Sniffer::from_file(path);
+                while let Some(packet) = sniffer.next_packet() {
+                    if let Some(rtp_packet) = RtpPacket::build(packet) {
+                        self.rtp_packets.push(rtp_packet);
+                    }
+                }
             }
         }
     }
@@ -46,11 +61,8 @@ impl ViewState {
 
     fn show_or_hide_rtp_packets_window(&mut self, ctx: &Context) {
         if self.is_rtp_packets_table_visible {
-            self.rtp_packets_table.show(
-                ctx,
-                &mut self.is_rtp_packets_table_visible,
-                &mut self.picked_path,
-            )
+            let mut rtp_packets_table = RtpPacketsTable::new(&self.rtp_packets);
+            rtp_packets_table.show(ctx, self.is_rtp_packets_table_visible);
         }
     }
 }
