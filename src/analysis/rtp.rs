@@ -8,7 +8,6 @@ pub struct Stream<'a> {
     pub destination_addr: SocketAddr,
     pub ssrc: u32,
     // start time?
-    pub duration: Duration,
     // delta, jitter
     pub jitter: f64,
     lost_packets: usize,
@@ -21,7 +20,6 @@ impl<'a> Stream<'a> {
             source_addr: packet.raw_packet.source_addr.clone(),
             destination_addr: packet.raw_packet.destination_addr.clone(),
             ssrc: packet.packet.header.ssrc,
-            duration: Duration::new(0, 0),
             jitter: 0.0,
             lost_packets: 0,
             packets: vec![packet],
@@ -38,7 +36,8 @@ impl<'a> Stream<'a> {
     }
 
     pub fn lost_packets_percentage(&self) -> usize {
-        self.lost_packets / self.packets.len()
+        // TODO: implement
+        self.lost_packets / self.packets.len() * 100
     }
 
     fn calculate_jitter(&mut self, packet: &RtpPacket) {
@@ -62,6 +61,11 @@ impl<'a> Stream<'a> {
             let d = arrival_time_difference - timestamp_difference;
             self.jitter = self.jitter + (d - self.jitter) / 16.0;
         }
+    }
+
+    pub fn duration(&self) -> Duration {
+        // TODO: implement
+        Duration::new(0, 0)
     }
 }
 
