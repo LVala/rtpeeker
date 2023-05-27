@@ -1,6 +1,6 @@
-use crate::rtp_sniffer::PayloadType;
+use crate::sniffer::rtp::PayloadType;
 
-pub fn from(payload_type: &u8) -> PayloadType {
+pub fn from(payload_type: u8) -> PayloadType {
     let payload = match payload_type {
         0 => PayloadType {
             id: 0,
@@ -148,7 +148,7 @@ pub fn from(payload_type: &u8) -> PayloadType {
             clock_rate_in_hz: None,
         },
         _ => PayloadType {
-            id: *payload_type,
+            id: payload_type,
             name: payload_type.to_string(),
             clock_rate_in_hz: None,
         },
