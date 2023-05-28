@@ -5,6 +5,7 @@ use etherparse::{
     UdpHeader,
 };
 use std::net::{IpAddr::V4, Ipv4Addr, SocketAddr};
+use std::ops::Add;
 use std::time::Duration;
 
 #[derive(Debug)]
@@ -34,16 +35,16 @@ impl RawPacket {
         {
             let transport_protocol = get_transport_protocol(&transport)?;
             let (source_addr, destination_addr) = convert_addr(&ip_header, &transport)?;
-            // multiplied by 1000 because of micro to nanosecond conversion
-            let timestamp = Duration::new(
-                raw_packet.header.ts.tv_sec.try_into().unwrap(),
-                (raw_packet.header.ts.tv_usec * 1000).try_into().unwrap(),
-            );
 
+            let sec_duration = Duration::from_secs(raw_packet.header.ts.tv_sec.try_into().unwrap());
+            let micros_duration =
+                Duration::from_micros(raw_packet.header.ts.tv_usec.try_into().unwrap());
+
+            let duration = sec_duration.add(micros_duration);
             Some(Self {
                 payload: packet.payload.to_vec(), // FIXME: borrow checker won this time
                 length: raw_packet.header.len,
-                timestamp,
+                timestamp: duration,
                 source_addr,
                 destination_addr,
                 transport_protocol,
