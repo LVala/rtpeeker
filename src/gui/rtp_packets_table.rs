@@ -8,18 +8,13 @@ use egui_extras::{Column, Size, StripBuilder, TableBuilder};
 pub struct RtpPacketsTable<'a> {
     scroll_to_row_slider: usize,
     scroll_to_row: Option<usize>,
-    rtp_packets: Vec<&'a RtpPacket>,
+    rtp_packets: &'a mut Vec<RtpPacket>,
 }
 
 impl<'a> RtpPacketsTable<'a> {
-    pub fn new(rtp_packets: &'a [RtpPacket]) -> Self {
-        let mut packets = Vec::new();
-        for rtp_packet in rtp_packets.iter() {
-            packets.push(rtp_packet);
-        }
-
+    pub fn new(rtp_packets: &'a mut Vec<RtpPacket>) -> Self {
         Self {
-            rtp_packets: packets,
+            rtp_packets,
             scroll_to_row: None,
             scroll_to_row_slider: 0,
         }
@@ -58,11 +53,11 @@ impl RtpPacketsTable<'_> {
 
     fn sort_by_sequence_number_button(&mut self, ui: &mut Ui) {
         if ui.button("Sort by sequence number").clicked() {
-            self.rtp_packets.sort_by(|a, _b| {
+            self.rtp_packets.sort_by(|a, b| {
                 a.packet
                     .header
                     .sequence_number
-                    .partial_cmp(&a.packet.header.sequence_number)
+                    .partial_cmp(&b.packet.header.sequence_number)
                     .unwrap()
             })
         }
@@ -70,11 +65,11 @@ impl RtpPacketsTable<'_> {
 
     fn sort_by_time_stamp_button(&mut self, ui: &mut Ui) {
         if ui.button("Sort by time stamp").clicked() {
-            self.rtp_packets.sort_by(|a, _b| {
+            self.rtp_packets.sort_by(|a, b| {
                 a.packet
                     .header
                     .timestamp
-                    .partial_cmp(&a.packet.header.timestamp)
+                    .partial_cmp(&b.packet.header.timestamp)
                     .unwrap()
             })
         }

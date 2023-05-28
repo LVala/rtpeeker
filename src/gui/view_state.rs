@@ -61,7 +61,7 @@ impl ViewState {
 
     fn show_or_hide_rtp_packets_window(&mut self, ctx: &Context) {
         if self.is_rtp_packets_table_visible {
-            let mut rtp_packets_table = RtpPacketsTable::new(&self.rtp_packets);
+            let mut rtp_packets_table = RtpPacketsTable::new(&mut self.rtp_packets);
             rtp_packets_table.show(ctx, self.is_rtp_packets_table_visible);
         }
     }
