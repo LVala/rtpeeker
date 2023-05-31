@@ -1,24 +1,31 @@
-use crate::analysis::rtp::Streams;
+use crate::analysis::rtp::{Streams};
 use crate::sniffer::rtp::RtpPacket;
 use eframe::egui;
-use eframe::egui::{RichText, Ui, WidgetText};
+use eframe::egui::{Context, RichText, Ui, WidgetText};
+use std::collections::HashMap;
+
+use crate::gui::jitter_plot::JitterPlot;
 use egui::Window;
 use egui_extras::{Column, Size, StripBuilder, TableBuilder};
 
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct StreamsTable<'a> {
     pub streams: Streams<'a>,
+    is_jitter_visible: &'a mut HashMap<usize, bool>,
 }
 
 impl<'a> StreamsTable<'a> {
-    pub fn new(rtp_packets: &'a [RtpPacket]) -> Self {
+    pub fn new(rtp_packets: &'a [RtpPacket], jitter: &'a mut HashMap<usize, bool>) -> Self {
         let mut streams = Streams::new();
 
         for packet in rtp_packets {
             streams.add_packet(packet);
         }
 
-        Self { streams }
+        Self {
+            streams,
+            is_jitter_visible: jitter,
+        }
     }
 }
 
@@ -33,12 +40,13 @@ impl StreamsTable<'_> {
             .resizable(true)
             .default_width(1200.0)
             .show(ctx, |ui| {
-                self.ui(ui);
+                self.ui(ui, ctx);
             });
     }
 
-    fn ui(&mut self, ui: &mut Ui) {
+    fn ui(&mut self, ui: &mut Ui, ctx: &Context) {
         self.table(ui);
+        self.jitter_plot(ctx);
     }
 
     fn table(&mut self, ui: &mut Ui) {
@@ -136,14 +144,39 @@ impl StreamsTable<'_> {
                             let packet_loss = format!("{}%", packet_loss_perc);
                             ui.label(packet_loss);
                         });
+
                         let jitter_row = row.col(|ui| {
-                            ui.label(rtp_stream.jitter.to_string());
+                            if (ui.button(rtp_stream.jitter.to_string())).clicked() {
+                                if self.is_jitter_visible.contains_key(&row_index) {
+                                    if let Some(is_visible) = self.is_jitter_visible.get_mut(&row_index) {
+                                        *is_visible = !*is_visible
+                                    }
+                                } else {
+                                    self.is_jitter_visible.insert(row_index, true);
+                                }
+                            }
                         });
+
                         if let None = rtp_stream.payload_type().clock_rate_in_hz {
                             jitter_row.1.on_hover_text(WidgetText::RichText(RichText::from("Jitter is not calculated, due to the fact that clock rate for payload type is undefined.")));
                         }
                     },
                 );
             });
+    }
+
+    fn jitter_plot(&self, ctx: &Context) {
+        for x in self.is_jitter_visible.iter() {
+            if let Some(stream) = self.streams.streams.get(*x.0) {
+                JitterPlot::new(&stream.jitter_history).show(
+                    ctx,
+                    *x.1,
+                    format!(
+                        "Jitter history SSRC: {:?}. [X=timestamp] [Y=jitter]",
+                        stream.ssrc
+                    ),
+                );
+            }
+        }
     }
 }

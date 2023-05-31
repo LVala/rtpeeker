@@ -4,12 +4,14 @@ use crate::sniffer::rtp::RtpPacket;
 use crate::sniffer::Sniffer;
 use eframe::egui;
 use eframe::egui::{Context, Ui};
+use std::collections::HashMap;
 use std::path::Path;
 
 pub struct ViewState {
     is_rtp_packets_table_visible: bool,
     is_streams_table_visible: bool,
     rtp_packets: Vec<RtpPacket>,
+    is_jitter_visible: HashMap<usize, bool>,
 }
 
 impl eframe::App for ViewState {
@@ -38,6 +40,7 @@ impl ViewState {
             is_rtp_packets_table_visible: false,
             is_streams_table_visible: false,
             rtp_packets: Vec::new(),
+            is_jitter_visible: HashMap::default(),
         }
     }
 
@@ -87,7 +90,8 @@ impl ViewState {
 
     fn show_or_hide_streams_window(&mut self, ctx: &Context) {
         if self.is_streams_table_visible {
-            let mut streams_table = StreamsTable::new(&self.rtp_packets);
+            let mut streams_table =
+                StreamsTable::new(&self.rtp_packets, &mut self.is_jitter_visible);
             streams_table.show(ctx, self.is_streams_table_visible);
         }
     }

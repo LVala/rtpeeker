@@ -1,4 +1,5 @@
 use crate::sniffer::rtp::{PayloadType, RtpPacket};
+use std::hash::Hasher;
 use std::{net::SocketAddr, time::Duration};
 
 #[derive(Debug)]
@@ -9,6 +10,7 @@ pub struct Stream<'a> {
     // start time?
     // delta
     pub jitter: f64,
+    pub jitter_history: Vec<(f64, f64)>,
     lost_packets: usize,
     packets: Vec<&'a RtpPacket>,
 }
@@ -20,6 +22,7 @@ impl<'a> Stream<'a> {
             destination_addr: packet.raw_packet.destination_addr.clone(),
             ssrc: packet.packet.header.ssrc,
             jitter: 0.0,
+            jitter_history: vec![],
             lost_packets: 0,
             packets: vec![packet],
         }
@@ -70,7 +73,21 @@ impl<'a> Stream<'a> {
                 let d = arrival_time_difference.as_secs_f64() - timestamp_difference;
                 self.jitter = self.jitter + (d - self.jitter) / 16.0;
             }
+            self.jitter_history
+                .push((self.jitter, packet.raw_packet.timestamp.as_secs_f64()));
         }
+    }
+}
+impl<'a> PartialEq<Self> for Stream<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        self.ssrc == other.ssrc
+    }
+}
+impl Eq for Stream<'_> {}
+
+impl<'a> std::hash::Hash for Stream<'a> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.ssrc.hash(state);
     }
 }
 
