@@ -2,6 +2,7 @@
 
 pub mod analysis;
 pub mod gui;
+pub mod mappers;
 pub mod sniffer;
 
 use eframe::egui;
