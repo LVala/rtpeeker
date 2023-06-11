@@ -6,10 +6,12 @@ use eframe::egui;
 use eframe::egui::{Context, Ui};
 use std::collections::HashMap;
 use std::path::Path;
+use crate::gui::streams_plot::StreamsPlot;
 
 pub struct ViewState {
     is_rtp_packets_table_visible: bool,
     is_streams_table_visible: bool,
+    is_streams_plot_visible: bool,
     rtp_packets: Vec<RtpPacket>,
     is_jitter_visible: HashMap<usize, bool>,
 }
@@ -21,15 +23,14 @@ impl eframe::App for ViewState {
                 self.open_pcap_file_button(ui);
                 self.show_rtp_packets_button(ui);
                 self.show_streams_button(ui);
+                self.show_streams_plot_button(ui);
             });
         });
 
         egui::CentralPanel::default().show(ctx, |_| {
             self.show_or_hide_rtp_packets_window(ctx);
-        });
-
-        egui::CentralPanel::default().show(ctx, |_| {
             self.show_or_hide_streams_window(ctx);
+            self.show_or_hide_streams_plot_window(ctx);
         });
     }
 }
@@ -39,6 +40,7 @@ impl ViewState {
         Self {
             is_rtp_packets_table_visible: false,
             is_streams_table_visible: false,
+            is_streams_plot_visible: false,
             rtp_packets: Vec::new(),
             is_jitter_visible: HashMap::default(),
         }
@@ -81,6 +83,17 @@ impl ViewState {
         }
     }
 
+    fn show_streams_plot_button(&mut self, ui: &mut Ui) {
+        let table_button_text = if self.is_streams_plot_visible {
+            "Hide streams plot"
+        } else {
+            "Show streams plot"
+        };
+        if ui.button(table_button_text).clicked() {
+            self.is_streams_plot_visible = !self.is_streams_plot_visible
+        }
+    }
+
     fn show_or_hide_rtp_packets_window(&mut self, ctx: &Context) {
         if self.is_rtp_packets_table_visible {
             let mut rtp_packets_table = RtpPacketsTable::new(&mut self.rtp_packets);
@@ -93,6 +106,12 @@ impl ViewState {
             let mut streams_table =
                 StreamsTable::new(&self.rtp_packets, &mut self.is_jitter_visible);
             streams_table.show(ctx, self.is_streams_table_visible);
+        }
+    }
+
+    fn show_or_hide_streams_plot_window(&mut self, ctx: &Context) {
+        if self.is_streams_plot_visible {
+            StreamsPlot::new(&self.rtp_packets).show(ctx, self.is_streams_plot_visible);
         }
     }
 }
