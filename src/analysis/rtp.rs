@@ -12,7 +12,7 @@ pub struct Stream<'a> {
     pub jitter: f64,
     pub jitter_history: Vec<(f64, f64)>,
     lost_packets: usize,
-    packets: Vec<&'a RtpPacket>,
+    pub packets: Vec<&'a RtpPacket>,
 }
 
 impl<'a> Stream<'a> {

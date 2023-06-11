@@ -1,6 +1,6 @@
 use eframe::egui;
 use eframe::egui::plot::{Line, Plot, PlotPoints};
-use eframe::egui::{Ui};
+use eframe::egui::Ui;
 use egui::Window;
 
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -27,8 +27,8 @@ impl JitterPlot<'_> {
 
     fn ui(&mut self, ui: &mut Ui) {
         if self.jitter_history.is_empty() {
-             ui.label("Jitter is not calculated, due to the fact that clock rate for payload type is undefined.");
-        }  else {
+            ui.label("Jitter is not calculated, due to the fact that clock rate for payload type is undefined.");
+        } else {
             ui.horizontal(|ui| {
                 let points: PlotPoints = (0..self.jitter_history.len())
                     .map(|i| {

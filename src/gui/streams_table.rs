@@ -1,4 +1,4 @@
-use crate::analysis::rtp::{Streams};
+use crate::analysis::rtp::Streams;
 use crate::sniffer::rtp::RtpPacket;
 use eframe::egui;
 use eframe::egui::{Context, RichText, Ui, WidgetText};

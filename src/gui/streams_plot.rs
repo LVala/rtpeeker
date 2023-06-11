@@ -1,9 +1,18 @@
-use crate::analysis::rtp::{Streams};
-use crate::sniffer::rtp::RtpPacket;
 use eframe::egui;
+use eframe::egui::plot::{Line, MarkerShape, Plot, PlotPoints, Points};
 use eframe::egui::{Context, Ui};
+use eframe::epaint::Color32;
+use eframe::epaint::shape_transform::adjust_colors;
 use egui::Window;
+use pcap::Packet;
 
+use crate::analysis::rtp::{Stream, Streams};
+use crate::sniffer::rtp::RtpPacket;
+
+struct MyPoints {
+    normal_points: PlotPoints,
+    with_marker_points: PlotPoints,
+}
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct StreamsPlot<'a> {
     pub streams: Streams<'a>,
@@ -17,9 +26,7 @@ impl<'a> StreamsPlot<'a> {
             streams.add_packet(packet);
         }
 
-        Self {
-            streams,
-        }
+        Self { streams }
     }
 }
 
@@ -38,6 +45,38 @@ impl StreamsPlot<'_> {
             });
     }
 
-    fn ui(&mut self, _ui: &mut Ui, _ctx: &Context) {
+    fn ui(&mut self, ui: &mut Ui, ctx: &Context) {
+        let mut normal_points: Vec<[f64; 2]> = Vec::new();
+        let mut marker_points: Vec<[f64; 2]> = Vec::new();
+
+        for stream_ix in 0..self.streams.streams.len() {
+            let stream = self.streams.streams.get(stream_ix).unwrap();
+
+            for packet in &stream.packets {
+                if packet.packet.header.marker {
+                    marker_points.push([packet.raw_packet.timestamp.as_secs_f64(), stream_ix as f64])
+                } else {
+                    normal_points.push([packet.raw_packet.timestamp.as_secs_f64(), stream_ix as f64])
+                }
+            }
+        }
+
+        let normal_points = Points::new(PlotPoints::new(normal_points))
+            .color(Color32::DARK_RED)
+            .filled(true)
+            .radius(3.0);
+        let marker_points = Points::new(PlotPoints::new(marker_points))
+            .color(Color32::DARK_GREEN)
+            .shape(MarkerShape::Diamond)
+            .filled(true)
+            .radius(3.5);
+
+
+        Plot::new("halo")
+            .view_aspect(2.0)
+            .show(ui, |plot_ui| {
+                plot_ui.points(normal_points);
+                plot_ui.points(marker_points);
+            });
     }
 }

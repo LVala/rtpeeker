@@ -1,12 +1,12 @@
 use super::rtp_packets_table::RtpPacketsTable;
 use super::streams_table::StreamsTable;
+use crate::gui::streams_plot::StreamsPlot;
 use crate::sniffer::rtp::RtpPacket;
 use crate::sniffer::Sniffer;
 use eframe::egui;
 use eframe::egui::{Context, Ui};
 use std::collections::HashMap;
 use std::path::Path;
-use crate::gui::streams_plot::StreamsPlot;
 
 pub struct ViewState {
     is_rtp_packets_table_visible: bool,
