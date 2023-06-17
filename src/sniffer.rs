@@ -22,6 +22,7 @@ impl Sniffer<Offline> {
 impl Sniffer<Active> {
     pub fn from_device(device: Device) -> Self {
         let capture = Capture::from_device(device).unwrap().open().unwrap();
+        let capture = capture.setnonblock().unwrap();
 
         Sniffer { capture }
     }
