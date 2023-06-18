@@ -38,6 +38,7 @@ impl<'a> Stream<'a> {
 
     pub fn add_packet(&mut self, packet: &'a RtpPacket, arrival_timestamp: Duration) {
         self.calculate_jitter(packet, arrival_timestamp);
+        self.last_packet_arrival = arrival_timestamp;
         self.packets.push(packet);
     }
 
@@ -70,7 +71,7 @@ impl<'a> Stream<'a> {
             let unit_timestamp = 1.0 / clock_rate as f64;
 
             let arrival_time_difference_result =
-                self.last_packet_arrival.checked_sub(arrival_timestamp);
+                arrival_timestamp.checked_sub(self.last_packet_arrival);
 
             if let Some(arrival_time_difference) = arrival_time_difference_result {
                 let timestamp_difference = packet.packet.header.timestamp as f64 * unit_timestamp

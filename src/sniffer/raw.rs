@@ -31,7 +31,7 @@ impl Display for SessionPacket {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum TransportProtocol {
     Tcp,
     Udp,
@@ -48,11 +48,25 @@ impl Display for TransportProtocol {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub struct PacketTypeId {
-    source_addr: SocketAddr,
-    destination_addr: SocketAddr,
-    protocol: TransportProtocol,
+    pub source_addr: SocketAddr,
+    pub destination_addr: SocketAddr,
+    pub protocol: TransportProtocol,
+}
+
+impl PacketTypeId {
+    pub fn new(
+        source_addr: SocketAddr,
+        destination_addr: SocketAddr,
+        protocol: TransportProtocol,
+    ) -> Self {
+        PacketTypeId {
+            source_addr,
+            destination_addr,
+            protocol,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -95,6 +109,16 @@ impl RawPacket {
         } else {
             None
         }
+    }
+
+    pub fn parse_as_rtp(&mut self) {
+        let rtp_packet = RtpPacket::build(self).unwrap();
+        self.session_packet = SessionPacket::RTP(rtp_packet);
+    }
+
+    pub fn parse_as_rtcp(&mut self) {
+        let rtcp_packet_group = RtcpPacketGroup::rtcp_packets_from(self).unwrap();
+        self.session_packet = SessionPacket::RTCP(rtcp_packet_group);
     }
 }
 

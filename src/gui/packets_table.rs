@@ -1,22 +1,28 @@
-use crate::sniffer::raw::{RawPacket, TransportProtocol, SessionPacket::*};
-use crate::sniffer::rtp::RtpPacket;
-use crate::sniffer::rtcp::RtcpPacketGroup;
-use std::net::SocketAddr;
+use crate::sniffer::raw::{PacketTypeId, RawPacket, SessionPacket::*};
 use eframe::egui;
 use eframe::egui::Ui;
 use egui::Window;
 use egui_extras::{Column, Size, StripBuilder, TableBuilder};
+use std::collections::HashSet;
 
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct PacketsTable<'a> {
     scroll_to_row: Option<usize>,
+    rtp_packet_ids: &'a mut HashSet<PacketTypeId>,
+    rtcp_packet_ids: &'a mut HashSet<PacketTypeId>,
     packets: &'a mut Vec<RawPacket>,
 }
 
 impl<'a> PacketsTable<'a> {
-    pub fn new(packets: &'a mut Vec<RawPacket>) -> Self {
+    pub fn new(
+        packets: &'a mut Vec<RawPacket>,
+        rtp_packet_ids: &'a mut HashSet<PacketTypeId>,
+        rtcp_packet_ids: &'a mut HashSet<PacketTypeId>,
+    ) -> Self {
         Self {
             packets,
+            rtp_packet_ids,
+            rtcp_packet_ids,
             scroll_to_row: None,
         }
     }
@@ -24,7 +30,7 @@ impl<'a> PacketsTable<'a> {
 
 impl PacketsTable<'_> {
     fn header(&self) -> &'static str {
-        "☰ RTP packets"
+        "☰ Packets"
     }
 
     pub fn show(&mut self, ctx: &egui::Context, mut open: bool) {
@@ -123,22 +129,31 @@ impl PacketsTable<'_> {
                         ui.label(packet.session_packet.to_string());
                     });
 
-                    let source = packet.source_addr;
-                    let dest = packet.destination_addr;
-                    let protocol = packet.transport_protocol;
+                    let packet_type_id = PacketTypeId::new(
+                        packet.source_addr,
+                        packet.destination_addr,
+                        packet.transport_protocol,
+                    );
                     let is_rtp = matches!(packet.session_packet, RTP(_));
                     let is_rtcp = matches!(packet.session_packet, RTCP(_));
 
                     resp.context_menu(|ui| {
                         ui.label("Treat as:");
                         if ui.radio(is_rtp, "RTP").clicked() {
-                            parse_packets_as(self.packets, source, dest, protocol, true, false);
+                            parse_packets_as(self.packets, &packet_type_id, true, false);
+                            self.rtp_packet_ids.insert(packet_type_id);
+                            ui.close_menu();
                         }
                         if ui.radio(is_rtcp, "RTCP").clicked() {
-                            parse_packets_as(self.packets, source, dest, protocol, false, true);
+                            parse_packets_as(self.packets, &packet_type_id, false, true);
+                            self.rtcp_packet_ids.insert(packet_type_id);
+                            ui.close_menu();
                         }
                         if ui.radio(!is_rtp && !is_rtcp, "Unknown").clicked() {
-                            parse_packets_as(self.packets, source, dest, protocol, false, false);
+                            parse_packets_as(self.packets, &packet_type_id, false, false);
+                            self.rtp_packet_ids.remove(&packet_type_id);
+                            self.rtcp_packet_ids.remove(&packet_type_id);
+                            ui.close_menu();
                         }
                     });
                 });
@@ -146,17 +161,21 @@ impl PacketsTable<'_> {
     }
 }
 
-fn parse_packets_as(packets: &mut Vec<RawPacket>, source: SocketAddr, dest: SocketAddr, protocol: TransportProtocol, is_rtp: bool, is_rtcp: bool) {
+fn parse_packets_as(
+    packets: &mut Vec<RawPacket>,
+    packet_type_id: &PacketTypeId,
+    is_rtp: bool,
+    is_rtcp: bool,
+) {
     for pack in packets.iter_mut() {
-        if source == pack.source_addr 
-          && dest == pack.destination_addr 
-          && protocol == pack.transport_protocol {
+        if packet_type_id.source_addr == pack.source_addr
+            && packet_type_id.destination_addr == pack.destination_addr
+            && packet_type_id.protocol == pack.transport_protocol
+        {
             if is_rtp {
-                let rtp_packet = RtpPacket::build(pack).unwrap();
-                pack.session_packet = RTP(rtp_packet);
+                pack.parse_as_rtp();
             } else if is_rtcp {
-                let rtcp_packets = RtcpPacketGroup::rtcp_packets_from(pack).unwrap();
-                pack.session_packet = RTCP(rtcp_packets);
+                pack.parse_as_rtcp();
             } else {
                 pack.session_packet = Unknown;
             }
