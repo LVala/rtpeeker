@@ -7,7 +7,7 @@ pub struct RtcpPacketGroup {
 }
 
 impl RtcpPacketGroup {
-    pub fn rtcp_packets_from(packet: RawPacket) -> Option<RtcpPacketGroup> {
+    pub fn rtcp_packets_from(packet: &RawPacket) -> Option<RtcpPacketGroup> {
         let mut buffer: &[u8] = &packet.payload;
         if let Ok(rtcp_packets) = packet::unmarshal(&mut buffer) {
             let rtcp_packet_group = Self {

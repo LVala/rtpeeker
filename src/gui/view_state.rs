@@ -1,7 +1,7 @@
 use super::packets_table::PacketsTable;
 use super::rtp_packets_table::RtpPacketsTable;
 use super::streams_table::StreamsTable;
-use crate::sniffer::raw::RawPacket;
+use crate::sniffer::raw::{RawPacket, PacketTypeId};
 use crate::sniffer::Sniffer;
 use eframe::egui;
 use eframe::egui::{Context, Ui};
@@ -14,6 +14,8 @@ pub struct ViewState {
     is_packets_table_visible: bool,
     packets: Vec<RawPacket>,
     is_jitter_visible: HashMap<usize, bool>,
+    rtp_packet_ids: Vec<PacketTypeId>,
+    rtcp_packet_ids: Vec<PacketTypeId>,
 }
 
 impl eframe::App for ViewState {
@@ -48,6 +50,8 @@ impl ViewState {
             is_streams_table_visible: false,
             is_packets_table_visible: false,
             packets: Vec::new(),
+            rtp_packet_ids: Vec::new(),
+            rtcp_packet_ids: Vec::new(),
             is_jitter_visible: HashMap::default(),
         }
     }

@@ -50,7 +50,7 @@ pub struct RtpPacket {
 }
 
 impl RtpPacket {
-    pub fn build(packet: RawPacket) -> Option<Self> {
+    pub fn build(packet: &RawPacket) -> Option<Self> {
         if let Tcp = packet.transport_protocol {
             return None;
         }

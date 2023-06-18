@@ -31,7 +31,7 @@ impl Display for SessionPacket {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum TransportProtocol {
     Tcp,
     Udp,
@@ -46,6 +46,13 @@ impl Display for TransportProtocol {
 
         write!(f, "{}", name)
     }
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub struct PacketTypeId {
+    source_addr: SocketAddr,
+    destination_addr: SocketAddr,
+    protocol: TransportProtocol,
 }
 
 #[derive(Debug)]

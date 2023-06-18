@@ -1,4 +1,7 @@
-use crate::sniffer::raw::{RawPacket, SessionPacket::*};
+use crate::sniffer::raw::{RawPacket, TransportProtocol, SessionPacket::*};
+use crate::sniffer::rtp::RtpPacket;
+use crate::sniffer::rtcp::RtcpPacketGroup;
+use std::net::SocketAddr;
 use eframe::egui;
 use eframe::egui::Ui;
 use egui::Window;
@@ -97,7 +100,7 @@ impl PacketsTable<'_> {
             })
             .body(|body| {
                 body.rows(text_height, self.packets.len(), |row_index, mut row| {
-                    let packet = self.packets.get_mut(row_index).take().unwrap();
+                    let packet = self.packets.get(row_index).take().unwrap();
                     row.col(|ui| {
                         ui.label(row_index.to_string());
                     });
@@ -120,18 +123,43 @@ impl PacketsTable<'_> {
                         ui.label(packet.session_packet.to_string());
                     });
 
+                    let source = packet.source_addr;
+                    let dest = packet.destination_addr;
+                    let protocol = packet.transport_protocol;
+                    let is_rtp = matches!(packet.session_packet, RTP(_));
+                    let is_rtcp = matches!(packet.session_packet, RTCP(_));
+
                     resp.context_menu(|ui| {
-                        let s_pack = &packet.session_packet;
                         ui.label("Treat as:");
-                        if ui.radio(matches!(s_pack, RTP(_)), "RTP").clicked() {
-                            // TODO parse packets as RTP
-                        } else if ui.radio(matches!(s_pack, RTCP(_)), "RTCP").clicked() {
-                            // TODO parse packets as RTCP
-                        } else if ui.radio(matches!(s_pack, Unknown), "Unknown").clicked() {
-                            // TODO ignore these packets
+                        if ui.radio(is_rtp, "RTP").clicked() {
+                            parse_packets_as(self.packets, source, dest, protocol, true, false);
+                        }
+                        if ui.radio(is_rtcp, "RTCP").clicked() {
+                            parse_packets_as(self.packets, source, dest, protocol, false, true);
+                        }
+                        if ui.radio(!is_rtp && !is_rtcp, "Unknown").clicked() {
+                            parse_packets_as(self.packets, source, dest, protocol, false, false);
                         }
                     });
                 });
             });
+    }
+}
+
+fn parse_packets_as(packets: &mut Vec<RawPacket>, source: SocketAddr, dest: SocketAddr, protocol: TransportProtocol, is_rtp: bool, is_rtcp: bool) {
+    for pack in packets.iter_mut() {
+        if source == pack.source_addr 
+          && dest == pack.destination_addr 
+          && protocol == pack.transport_protocol {
+            if is_rtp {
+                let rtp_packet = RtpPacket::build(pack).unwrap();
+                pack.session_packet = RTP(rtp_packet);
+            } else if is_rtcp {
+                let rtcp_packets = RtcpPacketGroup::rtcp_packets_from(pack).unwrap();
+                pack.session_packet = RTCP(rtcp_packets);
+            } else {
+                pack.session_packet = Unknown;
+            }
+        }
     }
 }
