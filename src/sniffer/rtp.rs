@@ -47,18 +47,16 @@ impl std::fmt::Display for MediaType {
 pub struct RtpPacket {
     pub packet: Packet,
     pub payload_type: PayloadType,
-    pub raw_packet: RawPacket,
 }
 
 impl RtpPacket {
-    pub fn build(packet: RawPacket) -> Option<Self> {
+    pub fn build(packet: &RawPacket) -> Option<Self> {
         if let Tcp = packet.transport_protocol {
             return None;
         }
         let mut buffer: &[u8] = &packet.payload;
         if let Ok(rtp_packet) = Packet::unmarshal(&mut buffer) {
             let converted_packet = Self {
-                raw_packet: packet,
                 payload_type: payload_type_mapper::from(rtp_packet.header.payload_type),
                 packet: rtp_packet,
             };

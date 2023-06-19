@@ -1,5 +1,5 @@
-use crate::analysis::rtp::{Streams};
-use crate::sniffer::rtp::RtpPacket;
+use crate::analysis::rtp::Streams;
+use crate::sniffer::raw::RawPacket;
 use eframe::egui;
 use eframe::egui::{Context, RichText, Ui, WidgetText};
 use std::collections::HashMap;
@@ -15,10 +15,10 @@ pub struct StreamsTable<'a> {
 }
 
 impl<'a> StreamsTable<'a> {
-    pub fn new(rtp_packets: &'a [RtpPacket], jitter: &'a mut HashMap<usize, bool>) -> Self {
+    pub fn new(packets: &'a [RawPacket], jitter: &'a mut HashMap<usize, bool>) -> Self {
         let mut streams = Streams::new();
 
-        for packet in rtp_packets {
+        for packet in packets {
             streams.add_packet(packet);
         }
 

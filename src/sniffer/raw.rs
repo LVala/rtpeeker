@@ -1,17 +1,72 @@
+use crate::sniffer::rtcp::RtcpPacketGroup;
+use crate::sniffer::rtp::RtpPacket;
 use etherparse::{
     IpHeader::{self, Version4, Version6},
     Ipv4Header, PacketHeaders, TcpHeader,
     TransportHeader::{self, Tcp, Udp},
     UdpHeader,
 };
+use pcap::Packet;
+use std::fmt::{Display, Error, Formatter};
 use std::net::{IpAddr::V4, Ipv4Addr, SocketAddr};
 use std::ops::Add;
 use std::time::Duration;
 
 #[derive(Debug)]
+pub enum SessionPacket {
+    Unknown,
+    RTP(RtpPacket),
+    RTCP(RtcpPacketGroup),
+}
+
+impl Display for SessionPacket {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        let name = match self {
+            Self::Unknown => "Unknown",
+            Self::RTP(_) => "RTP",
+            Self::RTCP(_) => "RTCP",
+        };
+
+        write!(f, "{}", name)
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum TransportProtocol {
     Tcp,
     Udp,
+}
+
+impl Display for TransportProtocol {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        let name = match self {
+            Self::Tcp => "TCP",
+            Self::Udp => "UDP",
+        };
+
+        write!(f, "{}", name)
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+pub struct PacketTypeId {
+    pub source_addr: SocketAddr,
+    pub destination_addr: SocketAddr,
+    pub protocol: TransportProtocol,
+}
+
+impl PacketTypeId {
+    pub fn new(
+        source_addr: SocketAddr,
+        destination_addr: SocketAddr,
+        protocol: TransportProtocol,
+    ) -> Self {
+        PacketTypeId {
+            source_addr,
+            destination_addr,
+            protocol,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -22,10 +77,11 @@ pub struct RawPacket {
     pub source_addr: SocketAddr,
     pub destination_addr: SocketAddr,
     pub transport_protocol: TransportProtocol,
+    pub session_packet: SessionPacket,
 }
 
 impl RawPacket {
-    pub fn build(raw_packet: &pcap::Packet) -> Option<Self> {
+    pub fn build(raw_packet: &Packet) -> Option<Self> {
         let packet = PacketHeaders::from_ethernet_slice(raw_packet.data).unwrap();
         if let PacketHeaders {
             ip: Some(ip_header),
@@ -48,10 +104,21 @@ impl RawPacket {
                 source_addr,
                 destination_addr,
                 transport_protocol,
+                session_packet: SessionPacket::Unknown,
             })
         } else {
             None
         }
+    }
+
+    pub fn parse_as_rtp(&mut self) {
+        let rtp_packet = RtpPacket::build(self).unwrap();
+        self.session_packet = SessionPacket::RTP(rtp_packet);
+    }
+
+    pub fn parse_as_rtcp(&mut self) {
+        let rtcp_packet_group = RtcpPacketGroup::rtcp_packets_from(self).unwrap();
+        self.session_packet = SessionPacket::RTCP(rtcp_packet_group);
     }
 }
 
