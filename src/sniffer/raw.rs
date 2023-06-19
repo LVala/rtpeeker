@@ -164,7 +164,7 @@ fn convert_addr(
             (source, destination)
         }
         // FIXME: support IPv6
-        Version6(_, _) => panic!("IPv6 currently not supported"),
+        Version6(_, _) => return None,
     };
     let source = SocketAddr::new(source_ip_addr, source_port);
     let destination = SocketAddr::new(dest_ip_addr, dest_port);
