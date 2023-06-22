@@ -1,3 +1,4 @@
+use crate::sniffer::raw::{RawPacket, SessionPacket::RTP};
 use crate::sniffer::rtp::RtpPacket;
 use eframe::egui;
 use eframe::egui::Ui;
@@ -8,13 +9,13 @@ use egui_extras::{Column, Size, StripBuilder, TableBuilder};
 pub struct RtpPacketsTable<'a> {
     scroll_to_row_slider: usize,
     scroll_to_row: Option<usize>,
-    rtp_packets: &'a mut Vec<RtpPacket>,
+    packets: &'a mut Vec<RawPacket>,
 }
 
 impl<'a> RtpPacketsTable<'a> {
-    pub fn new(rtp_packets: &'a mut Vec<RtpPacket>) -> Self {
+    pub fn new(packets: &'a mut Vec<RawPacket>) -> Self {
         Self {
-            rtp_packets,
+            packets,
             scroll_to_row: None,
             scroll_to_row_slider: 0,
         }
@@ -53,36 +54,42 @@ impl RtpPacketsTable<'_> {
 
     fn sort_by_sequence_number_button(&mut self, ui: &mut Ui) {
         if ui.button("Sort by sequence number").clicked() {
-            self.rtp_packets.sort_by(|a, b| {
-                a.packet
-                    .header
-                    .sequence_number
-                    .partial_cmp(&b.packet.header.sequence_number)
-                    .unwrap()
-            })
+            // self.packets.sort_by(|a, b| {
+            //     a.packet
+            //         .header
+            //         .sequence_number
+            //         .partial_cmp(&b.packet.header.sequence_number)
+            //         .unwrap()
+            // })
         }
     }
 
     fn sort_by_time_stamp_button(&mut self, ui: &mut Ui) {
         if ui.button("Sort by time stamp").clicked() {
-            self.rtp_packets.sort_by(|a, b| {
-                a.packet
-                    .header
-                    .timestamp
-                    .partial_cmp(&b.packet.header.timestamp)
-                    .unwrap()
-            })
+            // self.rtp_packets.sort_by(|a, b| {
+            //     a.packet
+            //         .header
+            //         .timestamp
+            //         .partial_cmp(&b.packet.header.timestamp)
+            //         .unwrap()
+            // })
         }
     }
 
     fn slider(&mut self, ui: &mut Ui) {
+        let length = self
+            .packets
+            .iter()
+            .filter(|packet| matches!(packet.session_packet, RTP(_)))
+            .count();
+
         let slider_response = ui.add(
-            egui::Slider::new(&mut self.scroll_to_row_slider, 0..=self.rtp_packets.len())
+            egui::Slider::new(&mut self.scroll_to_row_slider, 0..=length)
                 .logarithmic(true)
                 .text("Row to scroll to"),
         );
         if slider_response.changed() {
-            self.rtp_packets.len();
+            self.packets.len();
             self.scroll_to_row = Some(self.scroll_to_row_slider);
         }
     }
@@ -100,6 +107,12 @@ impl RtpPacketsTable<'_> {
             });
     }
     fn table_ui(&mut self, ui: &mut Ui) {
+        let packets: Vec<_> = self
+            .packets
+            .iter()
+            .filter(|packet| matches!(packet.session_packet, RTP(_)))
+            .collect();
+
         let text_height = egui::TextStyle::Body.resolve(ui.style()).size;
 
         let mut table = TableBuilder::new(ui)
@@ -176,52 +189,56 @@ impl RtpPacketsTable<'_> {
                 });
             })
             .body(|body| {
-                body.rows(text_height, self.rtp_packets.len(), |row_index, mut row| {
-                    let rtp_packet = self.rtp_packets.get(row_index).take().unwrap();
+                body.rows(text_height, packets.len(), |row_index, mut row| {
+                    let packet = packets.get(row_index).take().unwrap();
+                    let RTP(RtpPacket{packet: ref rtp_packet, ..}) = packet.session_packet else {
+                        return;
+                    };
+
                     row.col(|ui| {
                         ui.label(row_index.to_string());
                     });
                     row.col(|ui| {
-                        ui.label(rtp_packet.raw_packet.destination_addr.to_string());
+                        ui.label(packet.destination_addr.to_string());
                     });
                     row.col(|ui| {
-                        ui.label(rtp_packet.raw_packet.source_addr.to_string());
+                        ui.label(packet.source_addr.to_string());
                     });
                     row.col(|ui| {
-                        ui.label(rtp_packet.packet.header.version.to_string());
+                        ui.label(rtp_packet.header.version.to_string());
                     });
                     row.col(|ui| {
-                        ui.label(rtp_packet.packet.header.padding.to_string());
+                        ui.label(rtp_packet.header.padding.to_string());
                     });
                     row.col(|ui| {
-                        ui.label(rtp_packet.packet.header.extension.to_string());
+                        ui.label(rtp_packet.header.extension.to_string());
                     });
                     row.col(|ui| {
-                        ui.label(rtp_packet.packet.header.marker.to_string());
+                        ui.label(rtp_packet.header.marker.to_string());
                     });
                     row.col(|ui| {
-                        ui.label(rtp_packet.packet.header.payload_type.to_string());
+                        ui.label(rtp_packet.header.payload_type.to_string());
                     });
                     row.col(|ui| {
-                        ui.label(rtp_packet.packet.header.sequence_number.to_string());
+                        ui.label(rtp_packet.header.sequence_number.to_string());
                     });
                     row.col(|ui| {
-                        ui.label(rtp_packet.packet.header.timestamp.to_string());
+                        ui.label(rtp_packet.header.timestamp.to_string());
                     });
                     row.col(|ui| {
-                        ui.label(rtp_packet.packet.header.ssrc.to_string());
+                        ui.label(rtp_packet.header.ssrc.to_string());
                     });
                     row.col(|ui| {
-                        ui.label(format!("{:?}", rtp_packet.packet.header.csrc));
+                        ui.label(format!("{:?}", rtp_packet.header.csrc));
                     });
                     row.col(|ui| {
-                        ui.label(rtp_packet.packet.header.extension_profile.to_string());
+                        ui.label(rtp_packet.header.extension_profile.to_string());
                     });
                     row.col(|ui| {
-                        ui.label(format!("{:?}", rtp_packet.packet.header.extensions));
+                        ui.label(format!("{:?}", rtp_packet.header.extensions));
                     });
                     row.col(|ui| {
-                        ui.label(format!("{:?}", rtp_packet.packet.payload));
+                        ui.label(format!("{:?}", rtp_packet.payload));
                     });
                 });
             });
