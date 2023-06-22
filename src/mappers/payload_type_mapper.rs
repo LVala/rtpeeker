@@ -1,5 +1,5 @@
-use crate::sniffer::rtp::{PayloadType};
 use crate::sniffer::rtp::MediaType::{Audio, AudioVideo, Video};
+use crate::sniffer::rtp::PayloadType;
 
 pub fn from(payload_type: u8) -> PayloadType {
     let payload = match payload_type {

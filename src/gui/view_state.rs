@@ -1,8 +1,9 @@
 use super::packets_table::PacketsTable;
 use super::rtp_packets_table::RtpPacketsTable;
 use super::streams_table::StreamsTable;
-use crate::sniffer::rtp::RtpPacket;
-use crate::sniffer::Sniffer;
+use crate::gui::streams_plot::{SettingsXAxis, StreamsPlot};
+use crate::sniffer::raw::{PacketTypeId, RawPacket};
+use crate::sniffer::{Device, Sniffer};
 use eframe::egui;
 use eframe::egui::{Context, Ui};
 use pcap::Active;
@@ -14,10 +15,13 @@ pub struct ViewState {
     is_rtp_packets_table_visible: bool,
     is_streams_table_visible: bool,
     is_streams_plot_visible: bool,
-    rtp_packets: Vec<RtpPacket>,
+    is_packets_table_visible: bool,
+    packets: Vec<RawPacket>,
+    sniffer: Option<Sniffer<Active>>,
     is_jitter_visible: HashMap<usize, bool>,
     rtp_packet_ids: HashSet<PacketTypeId>,
     rtcp_packet_ids: HashSet<PacketTypeId>,
+    x_axis_is_rtp_timestamp: SettingsXAxis,
 }
 
 impl eframe::App for ViewState {
@@ -70,6 +74,7 @@ impl ViewState {
             rtp_packet_ids: HashSet::new(),
             rtcp_packet_ids: HashSet::new(),
             is_jitter_visible: HashMap::default(),
+            x_axis_is_rtp_timestamp: SettingsXAxis::RtpTimestamp,
         }
     }
 
@@ -151,6 +156,17 @@ impl ViewState {
         }
     }
 
+    fn show_or_hide_packets_window(&mut self, ctx: &Context) {
+        if self.is_packets_table_visible {
+            let mut packets_table = PacketsTable::new(
+                &mut self.packets,
+                &mut self.rtp_packet_ids,
+                &mut self.rtcp_packet_ids,
+            );
+            packets_table.show(ctx, self.is_packets_table_visible);
+        }
+    }
+
     fn show_or_hide_rtp_packets_window(&mut self, ctx: &Context) {
         if self.is_rtp_packets_table_visible {
             let mut rtp_packets_table = RtpPacketsTable::new(&mut self.packets);
@@ -167,18 +183,8 @@ impl ViewState {
 
     fn show_or_hide_streams_plot_window(&mut self, ctx: &Context) {
         if self.is_streams_plot_visible {
-            StreamsPlot::new(&self.rtp_packets).show(ctx, self.is_streams_plot_visible);
-        }
-    }
-
-    fn show_or_hide_packets_window(&mut self, ctx: &Context) {
-        if self.is_packets_table_visible {
-            let mut packets_table = PacketsTable::new(
-                &mut self.packets,
-                &mut self.rtp_packet_ids,
-                &mut self.rtcp_packet_ids,
-            );
-            packets_table.show(ctx, self.is_packets_table_visible);
+            StreamsPlot::new(&self.packets, &mut self.x_axis_is_rtp_timestamp)
+                .show(ctx, self.is_streams_plot_visible);
         }
     }
 }
