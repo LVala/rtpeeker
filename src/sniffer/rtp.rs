@@ -9,7 +9,7 @@ use webrtc_util::marshal::Unmarshal;
 pub enum MediaType {
     Audio,
     Video,
-    AudioVideo,
+    AudioOrVideo,
 }
 
 #[derive(Debug)]
@@ -25,14 +25,14 @@ impl std::fmt::Display for PayloadType {
         if let Some(clock_rate_in_hz) = self.clock_rate_in_hz {
             write!(
                 fmt,
-                "Payload type id {} is {} and it's clock rate is {}hz.",
-                self.id, self.name, clock_rate_in_hz
+                "Payload type:\n  id = {},\n  name = {},\n  type = {}\n  clock rate = {}hz\n",
+                self.id, self.name, self.media_type, clock_rate_in_hz
             )
         } else {
             write!(
                 fmt,
-                "Payload type id {} is {} and it's clock rate is undefined.",
-                self.id, self.name
+                "Payload type:\n  id = {},\n  name = {},\n  type = {}\n  clock rate = undefined\n",
+                self.id, self.name, self.media_type
             )
         }
     }

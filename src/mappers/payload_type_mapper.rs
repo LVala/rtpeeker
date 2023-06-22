@@ -1,4 +1,4 @@
-use crate::sniffer::rtp::MediaType::{Audio, AudioVideo, Video};
+use crate::sniffer::rtp::MediaType::{Audio, AudioOrVideo, Video};
 use crate::sniffer::rtp::PayloadType;
 
 pub fn from(payload_type: u8) -> PayloadType {
@@ -157,7 +157,7 @@ pub fn from(payload_type: u8) -> PayloadType {
             id: 33,
             name: "MP2T".to_string(),
             clock_rate_in_hz: Some(90000),
-            media_type: AudioVideo,
+            media_type: AudioOrVideo,
         },
         34 => PayloadType {
             id: 34,
@@ -169,19 +169,19 @@ pub fn from(payload_type: u8) -> PayloadType {
             id: 72,
             name: "reserved".to_string(),
             clock_rate_in_hz: None,
-            media_type: Audio,
+            media_type: AudioOrVideo,
         },
         77..=95 => PayloadType {
             id: 77,
             name: "unassigned".to_string(),
             clock_rate_in_hz: None,
-            media_type: Audio,
+            media_type: AudioOrVideo,
         },
         _ => PayloadType {
             id: payload_type,
-            name: payload_type.to_string(),
+            name: "unassigned".to_string(),
             clock_rate_in_hz: None,
-            media_type: Audio,
+            media_type: AudioOrVideo,
         },
     };
     payload

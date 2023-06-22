@@ -93,11 +93,13 @@ impl StreamsPlot<'_> {
 
     fn plot(&mut self, ui: &mut Ui) {
         let mut points: Vec<Points> = Vec::new();
+        let mut points_xy: Vec<(f64, f64)> = Vec::new();
 
         for stream_ix in 0..self.streams.streams.len() {
             let stream: &Stream = self.streams.streams.get(stream_ix).unwrap();
 
-            for packet in &stream.packets {
+            for packet_ix in 0..stream.packets.len() {
+                let packet = stream.packets.get(packet_ix).unwrap();
                 let marker = packet.packet.header.marker;
                 let color = if marker { Color32::GREEN } else { Color32::RED };
                 let additional_info = if marker {
@@ -108,14 +110,15 @@ impl StreamsPlot<'_> {
                         MediaType::Video => {
                             "For video payload type, marker says that it is last packet of a video frame.\n"
                         }
-                        MediaType::AudioVideo => ""
+                        MediaType::AudioOrVideo => "Marker could say that it is last packet of a video frame or \n\
+                         that it is a first packet after silence.\n"
                     }
                 } else {
                     "".as_str()
                 };
                 let mut on_hover = String::new();
                 on_hover.push_str(&*format!(
-                    "Source: {} Destination: {}\n",
+                    "Source: {}\nDestination: {}\n",
                     stream.source_addr, stream.destination_addr
                 ));
                 on_hover.push_str(&*packet.packet.to_string());
@@ -124,21 +127,36 @@ impl StreamsPlot<'_> {
                 on_hover.push_str("\n");
                 on_hover.push_str(&*additional_info);
 
-                let x = match self.settings_x_axis {
-                    SettingsXAxis::RtpTimestamp => packet.packet.header.timestamp as f64,
-                    SettingsXAxis::RawTimestamp => packet.raw_packet_timestamp.as_secs_f64() as f64,
-                    SettingsXAxis::SequenceNumer => packet.packet.header.sequence_number as f64,
+                let (x, y) = match self.settings_x_axis {
+                    SettingsXAxis::RtpTimestamp => {
+                        let y = if packet_ix == 0 {
+                            stream_ix as f64
+                        } else {
+                            let last_packet_ix = packet_ix - 1;
+                            let last_packet_timestamp = stream.packets.get(last_packet_ix).unwrap().packet.header.timestamp;
+                            if packet.packet.header.timestamp == last_packet_timestamp {
+                                let y_shift = 0.01;
+                                let last_packet_y = points_xy.last().unwrap().to_owned().1;
+                                last_packet_y + y_shift
+                            } else {
+                                stream_ix as f64
+                            }
+                        };
+                        (packet.packet.header.timestamp as f64, y)
+                    },
+                    SettingsXAxis::RawTimestamp => { (packet.raw_packet_timestamp.as_secs_f64(), stream_ix as f64) },
+                    SettingsXAxis::SequenceNumer => { (packet.packet.header.sequence_number as f64, stream_ix as f64) },
                 };
-                let y = stream_ix as f64 / 10.0;
 
                 on_hover.push_str(&*format!("x = {} [{}]\n", x, self.settings_x_axis));
-                let point = Points::new([x, y]).name(on_hover).color(color);
+                let point = Points::new([x, y]).name(on_hover).color(color).radius(1.5);
 
                 points.push(point);
+                points_xy.push((x, y ));
             }
         }
 
-        let plot = Plot::new("halo").label_formatter(|name, _value| format!("{}", name));
+        let plot = Plot::new("halo").label_formatter(|name, _value| format!("{}", name)).view_aspect(2.0);
 
         if self.requires_reset {
             plot.reset().show(ui, |plot_ui| {
