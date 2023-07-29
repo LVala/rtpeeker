@@ -112,8 +112,9 @@ impl RawPacket {
     }
 
     pub fn parse_as_rtp(&mut self) {
-        let rtp_packet = RtpPacket::build(self).unwrap();
-        self.session_packet = SessionPacket::RTP(rtp_packet);
+        if let Some(rtp_packet) = RtpPacket::build(self) {
+            self.session_packet = SessionPacket::RTP(rtp_packet);
+        }
     }
 
     pub fn parse_as_rtcp(&mut self) {

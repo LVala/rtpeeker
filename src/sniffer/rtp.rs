@@ -1,14 +1,15 @@
-use std::fmt::Debug;
 use super::raw::{RawPacket, TransportProtocol::Tcp};
 use crate::mappers::payload_type_mapper;
 use rtp::packet::Packet;
+use std::fmt::Debug;
+use std::time::Duration;
 use webrtc_util::marshal::Unmarshal;
 
-#[derive(Debug )]
+#[derive(Debug)]
 pub enum MediaType {
     Audio,
     Video,
-    AudioVideo,
+    AudioOrVideo,
 }
 
 #[derive(Debug)]
@@ -24,14 +25,14 @@ impl std::fmt::Display for PayloadType {
         if let Some(clock_rate_in_hz) = self.clock_rate_in_hz {
             write!(
                 fmt,
-                "Id {} is {}, clock rate is {}hz, type of media: {}",
-                self.id, self.name, clock_rate_in_hz, self.media_type
+                "Payload type:\n  id = {},\n  name = {},\n  type = {}\n  clock rate = {}hz\n",
+                self.id, self.name, self.media_type, clock_rate_in_hz
             )
         } else {
             write!(
                 fmt,
-                "Id {} is {} and it's clock rate is undefined.",
-                self.id, self.name
+                "Payload type:\n  id = {},\n  name = {},\n  type = {}\n  clock rate = undefined\n",
+                self.id, self.name, self.media_type
             )
         }
     }
@@ -47,6 +48,7 @@ impl std::fmt::Display for MediaType {
 pub struct RtpPacket {
     pub packet: Packet,
     pub payload_type: PayloadType,
+    pub raw_packet_timestamp: Duration,
 }
 
 impl RtpPacket {
@@ -59,6 +61,7 @@ impl RtpPacket {
             let converted_packet = Self {
                 payload_type: payload_type_mapper::from(rtp_packet.header.payload_type),
                 packet: rtp_packet,
+                raw_packet_timestamp: packet.timestamp,
             };
             Some(converted_packet)
         } else {

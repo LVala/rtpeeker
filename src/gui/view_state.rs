@@ -1,6 +1,7 @@
 use super::packets_table::PacketsTable;
 use super::rtp_packets_table::RtpPacketsTable;
 use super::streams_table::StreamsTable;
+use crate::gui::streams_plot::{SettingsXAxis, StreamsPlot};
 use crate::sniffer::raw::{PacketTypeId, RawPacket};
 use crate::sniffer::{Device, Sniffer};
 use eframe::egui;
@@ -13,12 +14,14 @@ use std::path::Path;
 pub struct ViewState {
     is_rtp_packets_table_visible: bool,
     is_streams_table_visible: bool,
+    is_streams_plot_visible: bool,
     is_packets_table_visible: bool,
     packets: Vec<RawPacket>,
     sniffer: Option<Sniffer<Active>>,
     is_jitter_visible: HashMap<usize, bool>,
     rtp_packet_ids: HashSet<PacketTypeId>,
     rtcp_packet_ids: HashSet<PacketTypeId>,
+    x_axis_is_rtp_timestamp: SettingsXAxis,
 }
 
 impl eframe::App for ViewState {
@@ -46,6 +49,7 @@ impl eframe::App for ViewState {
                 self.show_packets_button(ui);
                 self.show_rtp_packets_button(ui);
                 self.show_streams_button(ui);
+                self.show_streams_plot_button(ui);
             });
         });
 
@@ -53,6 +57,7 @@ impl eframe::App for ViewState {
             self.show_or_hide_packets_window(ctx);
             self.show_or_hide_rtp_packets_window(ctx);
             self.show_or_hide_streams_window(ctx);
+            self.show_or_hide_streams_plot_window(ctx);
         });
     }
 }
@@ -62,12 +67,14 @@ impl ViewState {
         Self {
             is_rtp_packets_table_visible: false,
             is_streams_table_visible: false,
+            is_streams_plot_visible: false,
             is_packets_table_visible: false,
             packets: Vec::new(),
             sniffer: None,
             rtp_packet_ids: HashSet::new(),
             rtcp_packet_ids: HashSet::new(),
             is_jitter_visible: HashMap::default(),
+            x_axis_is_rtp_timestamp: SettingsXAxis::RtpTimestamp,
         }
     }
 
@@ -138,6 +145,17 @@ impl ViewState {
         }
     }
 
+    fn show_streams_plot_button(&mut self, ui: &mut Ui) {
+        let table_button_text = if self.is_streams_plot_visible {
+            "Hide streams plot"
+        } else {
+            "Show streams plot"
+        };
+        if ui.button(table_button_text).clicked() {
+            self.is_streams_plot_visible = !self.is_streams_plot_visible
+        }
+    }
+
     fn show_or_hide_packets_window(&mut self, ctx: &Context) {
         if self.is_packets_table_visible {
             let mut packets_table = PacketsTable::new(
@@ -160,6 +178,13 @@ impl ViewState {
         if self.is_streams_table_visible {
             let mut streams_table = StreamsTable::new(&self.packets, &mut self.is_jitter_visible);
             streams_table.show(ctx, self.is_streams_table_visible);
+        }
+    }
+
+    fn show_or_hide_streams_plot_window(&mut self, ctx: &Context) {
+        if self.is_streams_plot_visible {
+            StreamsPlot::new(&self.packets, &mut self.x_axis_is_rtp_timestamp)
+                .show(ctx, self.is_streams_plot_visible);
         }
     }
 }

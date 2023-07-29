@@ -13,7 +13,7 @@ pub struct Stream<'a> {
     pub jitter: f64,
     pub jitter_history: Vec<(f64, f64)>,
     lost_packets: usize,
-    packets: Vec<&'a RtpPacket>,
+    pub packets: Vec<&'a RtpPacket>,
     last_packet_arrival: Duration,
 }
 
@@ -46,8 +46,16 @@ impl<'a> Stream<'a> {
         self.packets.len()
     }
 
-    pub fn lost_packets_percentage(&self) -> usize {
-        self.lost_packets / self.packets.len() * 100
+    pub fn lost_packets_percentage(&self) -> f32 {
+        let number_of_packets = self.packets.len() as f32;
+        if number_of_packets > 0.0 {
+            let first_sequence_number = self.packets.first().unwrap().packet.header.sequence_number as f32;
+            let last_sequence_number = self.packets.last().unwrap().packet.header.sequence_number as f32;
+            let expected_number_of_packets = last_sequence_number - first_sequence_number + 1.0;
+            100.0 - (number_of_packets / expected_number_of_packets * 100.0)
+        } else {
+            0.0
+        }
     }
 
     pub fn payload_type(&self) -> &PayloadType {
