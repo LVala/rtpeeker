@@ -117,8 +117,9 @@ impl RawPacket {
     }
 
     pub fn parse_as_rtcp(&mut self) {
-        let rtcp_packet_group = RtcpPacketGroup::rtcp_packets_from(self).unwrap();
-        self.session_packet = SessionPacket::RTCP(rtcp_packet_group);
+        if let Some(rtcp_packet_group) = RtcpPacketGroup::rtcp_packets_from(self) {
+            self.session_packet = SessionPacket::RTCP(rtcp_packet_group);
+        }
     }
 }
 
