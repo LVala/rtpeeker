@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 
 [workspace]
-members = [
-    "client",
-    "common"
-]
+members = [ "common" ]
+# client outside of the workspace
+# because of lack of per-package target selection and profile settings
+exclude = [ "client" ]

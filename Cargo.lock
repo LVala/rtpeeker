@@ -7,9 +7,5 @@ name = "rtpeeker"
 version = "0.1.0"
 
 [[package]]
-name = "rtpeeker_client"
-version = "0.1.0"
-
-[[package]]
 name = "rtpeeker_common"
 version = "0.1.0"
