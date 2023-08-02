@@ -1,4 +1,4 @@
-# media_stream_analyzer
+# RTPeeker
 
 _Work in progress_
 
