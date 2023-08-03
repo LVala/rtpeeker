@@ -2,17 +2,24 @@ name: CI
 
 on: [push, pull_request]
 
+env:
+  DIRS: . ./common ./client
+
 jobs:
   formatting:
-    name: Check formatting
+    name: Formatting
     runs-on: ubuntu-latest
-    strategy:
-      matrix: 
-        dir: [".", "./common", "./client"]
+    env:
+      CMD: cargo fmt --check --manifest-path
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
-      - working-directory: ${{ matrix.dir }}
-        run: cargo fmt --check
+      - name: Check backend formatting
+        run: $CMD ./Cargo.toml
+      - name: Check client formatting
+        run: $CMD ./client/Cargo.toml
+      - name: Check common formatting
+        run: $CMD ./common/Cargo.toml
+        
