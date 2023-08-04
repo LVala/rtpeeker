@@ -9,51 +9,39 @@ jobs:
   formatting:
     name: Formatting
     runs-on: ubuntu-latest
-    env:
-      CMD: cargo fmt --check --manifest-path
+    strategy:
+      matrix:
+        dir: [".", "./client", "./common"]
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
-      - name: Check backend formatting
-        run: $CMD ./Cargo.toml
-      - name: Check client formatting
-        run: $CMD ./client/Cargo.toml
-      - name: Check common formatting
-        run: $CMD ./common/Cargo.toml
+      - run: cargo fmt --check --manifest-path ${{ matrix.dir }}/Cargo.toml
         
   linting:
     name: Linting
     runs-on: ubuntu-latest
-    env:
-      CMD: cargo clippy -- -Dwarnings --manifest-path
+    strategy:
+      matrix:
+        dir: [".", "./client", "./common"]
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
           components: clippy
-      - name: Check backend linting
-        run: $CMD ./Cargo.toml
-      - name: Check client linting
-        run: $CMD ./client/Cargo.toml
-      - name: Check common linting
-        run: $CMD ./common/Cargo.toml
+      - run: cargo clippy --manifest-path ${{ matrix.dir }}/Cargo.toml -- -Dwarnings
 
   test:
     name: Tests
     runs-on: ubuntu-latest
-    env:
-      CMD: cargo test --manifest-path
+    strategy:
+      matrix:
+        dir: [".", "./client", "./common"]
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
-      - name: Run backend tests
-        run: $CMD ./Cargo.toml
-      - name: Run client tests
-        run: $CMD ./client/Cargo.toml
-      - name: Run common tests (native target)
-        run: $CMD ./common/Cargo.toml
+      - run: cargo test --manifest-path ${{ matrix.dir }}/Cargo.toml
