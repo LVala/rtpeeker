@@ -2,16 +2,13 @@ name: CI
 
 on: [push, pull_request]
 
-env:
-  DIRS: . ./common ./client
-
 jobs:
   formatting:
     name: Formatting
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        dir: [".", "./client", "./common"]
+        dir: [., ./client, ./common]
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
@@ -20,28 +17,36 @@ jobs:
       - run: cargo fmt --check --manifest-path ${{ matrix.dir }}/Cargo.toml
         
   linting:
-    name: Linting
+    name: Build and linting
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        dir: [".", "./client", "./common"]
+        dir: [., ./client, ./common]
+        target: [x86_64-unknown-linux-gnu, wasm32-unknown-unknown]
+        exclude:
+          - dir: .
+            target: wasm32-unknown-unknown
+          - dir: ./client
+            target: x86_64-unknown-linux-gnu
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
           components: clippy
-      - run: cargo clippy --manifest-path ${{ matrix.dir }}/Cargo.toml -- -Dwarnings
+      - run: cargo clippy --manifest-path ${{ matrix.dir }}/Cargo.toml --target ${{ matrix.target }} -- -Dwarnings
 
   test:
     name: Tests
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        dir: [".", "./client", "./common"]
+        dir: [., ./client, ./common]
+        include:
+          - flag: ''
+          - dir: ./client
+            flag: --lib
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32-unknown-unknown
-      - run: cargo test --manifest-path ${{ matrix.dir }}/Cargo.toml
+      - run: cargo test ${{ matrix.flag }} --manifest-path ${{ matrix.dir }}/Cargo.toml

@@ -1,4 +1,3 @@
-pub mod app;
 
 fn main() {
     // Redirect `log` message to `console.log` and friends:
