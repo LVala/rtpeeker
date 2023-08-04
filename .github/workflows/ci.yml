@@ -15,7 +15,7 @@ jobs:
         with:
           components: rustfmt
       - run: cargo fmt --check --manifest-path ${{ matrix.dir }}/Cargo.toml
-        
+
   linting:
     name: Build and linting
     runs-on: ubuntu-latest
