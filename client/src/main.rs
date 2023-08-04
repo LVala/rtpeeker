@@ -1,4 +1,3 @@
-
 fn main() {
     // Redirect `log` message to `console.log` and friends:
     eframe::WebLogger::init(log::LevelFilter::Debug).ok();
@@ -10,7 +9,7 @@ fn main() {
             .start(
                 "the_canvas_id", // hardcode it
                 web_options,
-                Box::new(|cc| Box::new(app::TemplateApp::new(cc))),
+                Box::new(|cc| Box::new(rtpeeker_client::TemplateApp::new(cc))),
             )
             .await
             .expect("failed to start eframe");

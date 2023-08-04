@@ -43,6 +43,7 @@ jobs:
       matrix:
         dir: [., ./client, ./common]
         include:
+          # all tests are run on host target
           - flag: ''
           - dir: ./client
             flag: --lib
