@@ -157,13 +157,26 @@ fn convert_addr(
     Some((source, destination))
 }
 
-pub fn to_u16(buf: &[u8; 16]) -> [u16; 8] {
-    // TODO: tests
+fn to_u16(buf: &[u8; 16]) -> Vec<u16> {
     buf.iter()
-        .zip(buf.iter().skip(1))
+        .step_by(2)
+        .zip(buf.iter().skip(1).step_by(2))
         .map(|(a, b)| ((*a as u16) << 8) | *b as u16)
         .collect::<Vec<_>>()
-        .as_slice()
-        .try_into()
-        .unwrap()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn to_u16_works() {
+        let init_buf: [u8; 16] = [
+            0x15, 0x23, 0x00, 0x11, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x88, 0x01,
+        ];
+        let new_buf = to_u16(&init_buf);
+        let valid: [u16; 8] = [0x1523, 0x11, 0, 0, 0, 0, 0, 0x8801];
+
+        assert_eq!(new_buf, valid);
+    }
 }
