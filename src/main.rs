@@ -17,6 +17,17 @@ use rtpeeker::sniffer;
 async fn main() {
     let devices = Device::list().expect("Error listing devices");
 
+    fn main() -> Result<(), eframe::Error> {
+        let options = eframe::NativeOptions {
+            initial_window_size: Some(egui::vec2(1600.0, 640.0)),
+            ..Default::default()
+        };
+        eframe::run_native(
+            "Media Stream Analyzer",
+            options,
+            Box::new(|_cc| Box::new(ViewState::new())),
+        )
+    }
 
     list_devices(devices);
     let device = select_device();

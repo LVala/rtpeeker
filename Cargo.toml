@@ -11,5 +11,10 @@ etherparse = "0.13.0"
 rtp = "0.6.8"
 rtcp = "0.7.2"
 webrtc-util = "0.7.0"
+egui = "0.22.0"
+eframe = { version = "0.22.0", default-features = false, features = [
+    "default_fonts",
+    "glow"
+] }
 
 # not using workspaces, as the crates use different targets
