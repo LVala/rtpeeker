@@ -3,15 +3,13 @@ name = "rtpeeker"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 tokio = { version = "1", features = [ "full" ] }
 warp = "0.3"
-pcap = "1.1.0"
+pcap = "1.0.0"
+etherparse = "0.13.0"
+rtp = "0.6.8"
+rtcp = "0.7.2"
+webrtc-util = "0.7.0"
 
-[workspace]
-members = [ "common" ]
-# client outside of the workspace
-# because of lack of per-package target selection and profile settings
-exclude = [ "client" ]
+# not using workspaces, as the crates use different targets
