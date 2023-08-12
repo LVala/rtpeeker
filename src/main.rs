@@ -3,6 +3,47 @@ use pcap::{Device, ConnectionStatus, IfFlags};
 use std::net::IpAddr;
 
 
+
+// #[tokio::main]
+// async fn main() {
+//     warp::serve(warp::fs::dir("client/dist"))
+//         .run(([127, 0, 0, 1], 3550))
+//         .await;
+// }
+
+use rtpeeker::sniffer;
+
+#[tokio::main]
+async fn main() {
+    let devices = Device::list().expect("Error listing devices");
+
+
+    list_devices(devices);
+    let device = select_device();
+    // TODO first choose file (open dialog)
+    // TODO loop on error
+
+
+
+    let Ok(mut sniffer) = sniffer::Sniffer::from_device(device.as_str()) else {
+        println!("Cannot open file");
+        return;
+    };
+
+    while let Ok(mut packet) = sniffer.next_packet() {
+        packet.parse_as(sniffer::packet::PacketType::RtpOverUdp);
+        println!("{:?}", packet);
+    }
+
+
+    // let Ok(mut sniffer) = sniffer::Sniffer::from_file("./pcap_examples/rtp.pcap") else {
+    //     println!("Cannot open file");
+    //     return;
+    // };
+    //
+}
+
+
 fn format_flags(flags: IfFlags) -> String {
     let mut result = Vec::new();
 
@@ -45,29 +86,14 @@ fn format_optional_ip(ip: &Option<IpAddr>) -> String {
     ip.as_ref().map_or("None".to_string(), |addr| format_ip_addr(addr))
 }
 
-#[tokio::main]
-async fn main() {
-    let devices = Device::list().expect("Error listing devices");
-
-    listDevices(devices);
-    selectDevice();
-    // TODO first choose file (open dialog)
-    // TODO loop on error
-
-    // warp::serve(warp::fs::dir("client/dist"))
-    //     .run(([127, 0, 0, 1], 3550))
-    //     .await;
-}
-
-fn selectDevice() {
+fn select_device() -> String {
     println!("Enter the name of the chosen device:");
     let mut chosen_name = String::new();
     io::stdin().read_line(&mut chosen_name).expect("Failed to read line");
-    let chosen_name = chosen_name.trim(); // Remove newline characters
-    println!("You chose: {}", chosen_name);
+    chosen_name.trim().to_string()
 }
 
-fn listDevices(devices: Vec<Device>) {
+fn list_devices(devices: Vec<Device>) {
     println!("Available network devices:");
     for device in devices {
         println!("Name: {}", device.name);
