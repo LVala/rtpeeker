@@ -1,14 +1,21 @@
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
+use serde::{Serialize, Deserialize};
+use bincode;
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Packet {
+    pub siema: u32
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+impl Packet {
+    pub fn new() -> Self {
+        Self { siema: 1223432 }
+    }
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
+    pub fn encode(&self) -> Result<Vec<u8>, bincode::Error> {
+        bincode::serialize(self) 
+    }
+
+    pub fn decode(bytes: &[u8]) -> Result<Self, bincode::Error> {
+        bincode::deserialize(bytes)
     }
 }
