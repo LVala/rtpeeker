@@ -1,36 +1,23 @@
 use pcap::{ConnectionStatus, Device, IfFlags};
-use std::io::stdin;
 use std::net::IpAddr;
-use std::thread::sleep;
-use std::time::Duration;
 
-pub(crate) fn select_device() -> String {
-    loop {
-        list_devices();
-        println!("Enter the name of the chosen device:");
-        let mut chosen_name = String::new();
-        stdin()
-            .read_line(&mut chosen_name)
-            .expect("Failed to read line");
-        let chosen_name = chosen_name.trim().to_string();
-
-        if Device::list()
-            .expect("Error listing devices")
-            .iter()
-            .any(|dev| dev.name == chosen_name)
-        {
-            return chosen_name;
-        } else {
-            println!("\nError: Invalid device name. Please choose a valid device.\n");
-            sleep(Duration::new(1, 0))
-        }
-    }
-}
-
-fn list_devices() {
+pub(crate) fn list_devices(flags: Vec<String>) {
     println!("Available network devices:");
     let devices = Device::list().expect("Error listing devices");
     for device in devices {
+        let formatted_flags = format_flags(device.flags.if_flags);
+        let mut should_print = true;
+        for flag_name in &flags {
+            if !formatted_flags.contains(flag_name) {
+                should_print = false;
+            }
+        }
+        if formatted_flags.eq("N/A") && !flags.is_empty() {
+            should_print = false
+        }
+        if !should_print {
+            continue;
+        }
         println!("Name: {}", device.name);
         println!("Description: {}", device.desc.unwrap_or("N/A".to_string()));
         println!(
@@ -50,8 +37,7 @@ fn list_devices() {
             );
             println!("  Destination: {}\n", format_optional_ip(&address.dst_addr));
         }
-
-        println!("Flags: {}", format_flags(device.flags.if_flags));
+        println!("Flags: {}", formatted_flags);
         println!(
             "Connection status: {}",
             format_connection_status(device.flags.connection_status)

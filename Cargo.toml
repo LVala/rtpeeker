@@ -12,5 +12,5 @@ rtp = "0.6.8"
 rtcp = "0.7.2"
 webrtc-util = "0.7.0"
 rfd = "0.11.3"
-
+clap = "2.33"
 # not using workspaces, as the crates use different targets

@@ -1,26 +1,32 @@
 use rtpeeker::command_line_interface::start_interface::command_line_interface;
 use rtpeeker::command_line_interface::start_interface::Action::{AnalyzeFile, CapturePackets};
 use rtpeeker::sniffer;
-
-// #[tokio::main]
-// async fn main() {
-//     warp::serve(warp::fs::dir("client/dist"))
-//         .run(([127, 0, 0, 1], 3550))
-//         .await;
-// }
+use std::net::SocketAddr;
 
 #[tokio::main]
 async fn main() {
     let action = command_line_interface();
     match action {
-        CapturePackets(device) => capture_packets(device),
-        AnalyzeFile(path) => analyze_file(path),
+        CapturePackets(device, socket_addr) => {
+            capture_packets(device);
+            warp_serve(socket_addr).await
+        }
+        AnalyzeFile(path, socket_addr) => {
+            analyze_file(path);
+            warp_serve(socket_addr).await
+        }
     };
 }
 
-fn analyze_file(path: String) {
-    let Ok(mut sniffer) = sniffer::Sniffer::from_file(path.as_str()) else {
-        println!("Cannot open file");
+async fn warp_serve(socket_addr: SocketAddr) {
+    warp::serve(warp::fs::dir("client/dist"))
+        .run(socket_addr)
+        .await
+}
+
+fn capture_packets(device: String) {
+    let Ok(mut sniffer) = sniffer::Sniffer::from_device(device.as_str()) else {
+        println!("Cannot open network interface");
         return;
     };
 
@@ -30,9 +36,9 @@ fn analyze_file(path: String) {
     }
 }
 
-fn capture_packets(device: String) {
-    let Ok(mut sniffer) = sniffer::Sniffer::from_device(device.as_str()) else {
-        println!("Cannot open network interface");
+fn analyze_file(path: String) {
+    let Ok(mut sniffer) = sniffer::Sniffer::from_file(path.as_str()) else {
+        println!("Cannot open file");
         return;
     };
 
