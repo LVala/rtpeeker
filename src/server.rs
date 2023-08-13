@@ -64,7 +64,7 @@ async fn client_connected(ws: WebSocket, packets: Packets, clients: Clients) {
         };
         let msg = Message::binary(encoded);
         client_ws_tx
-            .send(msg)
+            .feed(msg)
             .unwrap_or_else(|e| {
                 error!("WebSocket `feed` error: {}, client_id: {}", e, client_id);
             })
