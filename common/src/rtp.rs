@@ -1,10 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-#[cfg(not(target_arch = "wasm32"))]
-use rtp::packet::Packet;
-#[cfg(not(target_arch = "wasm32"))]
-use webrtc_util::marshal::Unmarshal;
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RtpPacket {
     pub version: u8,
@@ -22,6 +17,9 @@ pub struct RtpPacket {
 #[cfg(not(target_arch = "wasm32"))]
 impl RtpPacket {
     pub fn build(packet: &super::Packet) -> Option<Self> {
+        use rtp::packet::Packet;
+        use webrtc_util::marshal::Unmarshal;
+
         // payload field should never be empty
         // except for when encoding the packet
         let mut buffer: &[u8] = packet

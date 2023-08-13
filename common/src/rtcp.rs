@@ -1,14 +1,12 @@
 use serde::{Deserialize, Serialize};
 
-#[cfg(not(target_arch = "wasm32"))]
-use rtcp::packet;
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RtcpPacket {}
 
 #[cfg(not(target_arch = "wasm32"))]
 impl RtcpPacket {
     pub fn build(packet: &super::Packet) -> Option<Self> {
+        use rtcp::packet;
         // payload field should never be empty
         // except for when encoding the packet
         let mut buffer: &[u8] = packet
