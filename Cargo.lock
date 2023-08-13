@@ -842,18 +842,14 @@ dependencies = [
 name = "rtpeeker"
 version = "0.1.0"
 dependencies = [
- "etherparse",
  "futures-util",
  "log",
  "pcap",
  "pretty_env_logger",
- "rtcp",
- "rtp",
  "rtpeeker_common",
  "tokio",
  "tokio-stream",
  "warp",
- "webrtc-util",
 ]
 
 [[package]]
@@ -861,7 +857,12 @@ name = "rtpeeker_common"
 version = "0.1.0"
 dependencies = [
  "bincode",
+ "etherparse",
+ "pcap",
+ "rtcp",
+ "rtp",
  "serde",
+ "webrtc-util",
 ]
 
 [[package]]

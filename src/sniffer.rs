@@ -1,9 +1,5 @@
-use packet::Packet;
+use rtpeeker_common::Packet;
 use std::result;
-
-pub mod packet;
-pub mod rtcp;
-pub mod rtp;
 
 #[derive(Debug)]
 pub enum Error {

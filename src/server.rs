@@ -6,37 +6,31 @@ use std::sync::{
 };
 
 use futures_util::{SinkExt, StreamExt, TryFutureExt};
+use log::{error, info};
 use tokio::sync::{mpsc, RwLock};
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use warp::ws::{Message, WebSocket};
 use warp::Filter;
 
-use rtpeeker_common::Packet as SendPacket;
+use rtpeeker_common::packet::PacketType;
+use rtpeeker_common::Packet;
 
-use log::{error, info};
-
-use crate::sniffer::packet::Packet;
 use crate::sniffer::Sniffer;
 
-static DIST_DIR: &'static str = "client/dist";
-static WS_PATH: &'static str = "ws";
+static DIST_DIR: &str = "client/dist";
+static WS_PATH: &str = "ws";
 static NEXT_CLIENT_ID: AtomicUsize = AtomicUsize::new(1);
 
 type Clients = Arc<RwLock<HashMap<usize, mpsc::UnboundedSender<Message>>>>;
 type Packets = Arc<RwLock<Vec<Packet>>>;
 
-pub async fn run(addr: SocketAddr) {
-    let Ok(sniffer) = Sniffer::from_file("./pcap_examples/rtp.pcap") else {
-        // TODO: this should probably forward the error
-        eprintln!("Sniffer failed");
-        return;
-    };
-
+pub async fn run<T: pcap::Activated + 'static>(sniffer: Sniffer<T>, addr: SocketAddr) {
     let packets = Packets::default();
     let clients = Clients::default();
 
     let clients_sniff = clients.clone();
     let packets_sniff = packets.clone();
+
     tokio::task::spawn(async move {
         sniff(sniffer, packets_sniff, clients_sniff).await;
     });
@@ -63,9 +57,8 @@ async fn client_connected(ws: WebSocket, packets: Packets, clients: Clients) {
 
     let (mut client_ws_tx, mut client_ws_rx) = ws.split();
 
-    for _pack in packets.read().await.iter() {
-        let send_pack = SendPacket::new();
-        let Ok(encoded) = send_pack.encode() else {
+    for pack in packets.read().await.iter() {
+        let Ok(encoded) = pack.encode() else {
             error!("Failed to encode packet, client_id: {}", client_id);
             continue;
         };
@@ -124,9 +117,9 @@ async fn client_connected(ws: WebSocket, packets: Packets, clients: Clients) {
 async fn sniff<T: pcap::Activated>(mut sniffer: Sniffer<T>, packets: Packets, clients: Clients) {
     while let Some(result) = sniffer.next_packet() {
         match result {
-            Ok(pack) => {
-                let send_pack = SendPacket::new();
-                let Ok(encoded) = send_pack.encode() else {
+            Ok(mut pack) => {
+                pack.parse_as(PacketType::RtpOverUdp);
+                let Ok(encoded) = pack.encode() else {
                     error!("Sniffer: failed to encode packet");
                     continue;
                 };

@@ -5,5 +5,8 @@ mod sniffer;
 async fn main() {
     pretty_env_logger::init();
 
-    server::run("127.0.0.1:3550".parse().unwrap()).await;
+    let _sniffer = sniffer::Sniffer::from_device("lo");
+    let sniffer = sniffer::Sniffer::from_file("./pcap_examples/rtp.pcap").unwrap();
+
+    server::run(sniffer, "127.0.0.1:3550".parse().unwrap()).await;
 }

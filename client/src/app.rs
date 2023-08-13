@@ -93,7 +93,9 @@ impl FrontEnd {
                             ui.label(format!("{:?}", packet.unwrap()));
                         };
                     }
-                    other => {ui.label(format!("{:?}", other));}
+                    other => {
+                        ui.label(format!("{:?}", other));
+                    }
                 };
             }
         });
