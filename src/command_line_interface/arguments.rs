@@ -1,7 +1,7 @@
 use clap::{Args, Parser, Subcommand};
 
 #[derive(Debug, Parser)]
-#[clap(author = "Łukasz Wala", version, about)]
+#[clap(version, about)]
 pub(crate) struct RtpeekerArgs {
     #[clap(subcommand)]
     pub(crate) action: CommandType,
