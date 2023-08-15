@@ -85,6 +85,5 @@ fn format_ip_addr(ip: &IpAddr) -> String {
 }
 
 fn format_optional_ip(ip: &Option<IpAddr>) -> String {
-    ip.as_ref()
-        .map_or("None".to_string(), format_ip_addr)
+    ip.as_ref().map_or("None".to_string(), format_ip_addr)
 }
