@@ -12,18 +12,18 @@ pub(crate) fn list_devices(flags: Vec<String>) {
                 should_print = false;
             }
         }
-        if formatted_flags.eq("N/A") && !flags.is_empty() {
+        if formatted_flags.eq("None") && !flags.is_empty() {
             should_print = false
         }
         if !should_print {
             continue;
         }
         println!("Name: {}", device.name);
-        println!("Description: {}", device.desc.unwrap_or("N/A".to_string()));
+        println!("Description: {}", device.desc.unwrap_or("None".to_string()));
         println!(
             "Addresses: {}",
             if device.addresses.is_empty() {
-                "N/A"
+                "None"
             } else {
                 ""
             }
@@ -63,7 +63,7 @@ fn format_flags(flags: IfFlags) -> String {
     }
 
     if result.is_empty() {
-        result.push("N/A")
+        result.push("None")
     }
     result.join(" | ")
 }
@@ -73,7 +73,7 @@ fn format_connection_status(status: ConnectionStatus) -> String {
         ConnectionStatus::Unknown => "Unknown".to_string(),
         ConnectionStatus::Connected => "Connected".to_string(),
         ConnectionStatus::Disconnected => "Disconnected".to_string(),
-        ConnectionStatus::NotApplicable => "N/A".to_string(),
+        ConnectionStatus::NotApplicable => "None".to_string(),
     }
 }
 
