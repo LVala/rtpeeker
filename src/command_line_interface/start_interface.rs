@@ -16,7 +16,7 @@ pub fn start_command_line_interface() -> Action {
     match RtpeekerArgs::parse().action {
         CommandType::File(args) => {
             if let Ok(socket_addr) = args.socket_to_serve.parse() {
-                return AnalyzeFile(args.file_path, socket_addr);
+                AnalyzeFile(args.file_path, socket_addr)
             } else {
                 parsing_socket_error();
                 exit(1);
@@ -24,7 +24,7 @@ pub fn start_command_line_interface() -> Action {
         }
         CommandType::Interface(args) => {
             if let Ok(socket_addr) = args.socket_to_serve.parse() {
-                return CapturePackets(args.interface_name, socket_addr);
+                CapturePackets(args.interface_name, socket_addr)
             } else {
                 parsing_socket_error();
                 exit(1);
@@ -41,19 +41,19 @@ pub fn start_command_line_interface() -> Action {
 fn get_flags(sub_command: ListInterfaceSubcommand) -> Vec<String> {
     let mut flags = Vec::new();
 
-    if sub_command.filter_running.unwrap_or(false) == true {
+    if sub_command.filter_running.unwrap_or(false) {
         flags.push("RUNNING".to_string())
     }
 
-    if sub_command.filter_up.unwrap_or(false) == true {
+    if sub_command.filter_up.unwrap_or(false) {
         flags.push("UP".to_string())
     }
 
-    if sub_command.filter_loopback.unwrap_or(false) == true {
+    if sub_command.filter_loopback.unwrap_or(false) {
         flags.push("LOOPBACK".to_string())
     }
 
-    if sub_command.filter_wireless.unwrap_or(false) == true {
+    if sub_command.filter_wireless.unwrap_or(false) {
         flags.push("WIRELESS".to_string())
     }
     flags
