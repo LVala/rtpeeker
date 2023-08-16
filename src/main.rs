@@ -1,50 +1,34 @@
-use std::net::SocketAddr;
-
-use rtpeeker::command_line_interface::start_interface::start_command_line_interface;
-use rtpeeker::command_line_interface::start_interface::Action::{AnalyzeFile, CapturePackets};
-use rtpeeker::sniffer;
+use clap::{Parser, Subcommand};
+use rtpeeker::cmd;
 
 #[tokio::main]
-async fn main() {
-    let action = start_command_line_interface();
-    match action {
-        CapturePackets(device, socket_addr) => {
-            capture_packets(device);
-            warp_serve(socket_addr).await
-        }
-        AnalyzeFile(path, socket_addr) => {
-            analyze_file(path);
-            warp_serve(socket_addr).await
-        }
-    };
+async fn main() -> Result<(), ()> {
+    let cli = RtpeekerArgs::parse();
+
+    cli.run().await
 }
 
-async fn warp_serve(socket_addr: SocketAddr) {
-    warp::serve(warp::fs::dir("client/dist"))
-        .run(socket_addr)
-        .await
+#[derive(Debug, Parser)]
+#[clap(author = "Łukasz Wala", version, about)]
+struct RtpeekerArgs {
+    #[clap(subcommand)]
+    pub(crate) action: RtpeekerSubcommands,
 }
 
-fn capture_packets(device: String) {
-    let Ok(mut sniffer) = sniffer::Sniffer::from_device(device.as_str()) else {
-        println!("Cannot open network interface");
-        return;
-    };
-
-    while let Ok(mut packet) = sniffer.next_packet() {
-        packet.parse_as(sniffer::packet::PacketType::RtpOverUdp);
-        println!("{:?}", packet);
+impl RtpeekerArgs {
+    pub async fn run(self) -> Result<(), ()> {
+        match self.action {
+            RtpeekerSubcommands::Run(inner) => inner.run().await,
+            RtpeekerSubcommands::List(inner) => inner.run().await,
+        }
     }
 }
 
-fn analyze_file(path: String) {
-    let Ok(mut sniffer) = sniffer::Sniffer::from_file(path.as_str()) else {
-        println!("Cannot open file");
-        return;
-    };
+#[derive(Debug, Subcommand)]
+enum RtpeekerSubcommands {
+    /// Run the app
+    Run(cmd::run::Run),
 
-    while let Ok(mut packet) = sniffer.next_packet() {
-        packet.parse_as(sniffer::packet::PacketType::RtpOverUdp);
-        println!("{:?}", packet);
-    }
+    /// List network interfaces
+    List(cmd::list::List),
 }

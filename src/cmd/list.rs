@@ -1,23 +1,29 @@
+use clap::Args;
 use pcap::{ConnectionStatus, Device, IfFlags};
 use std::net::IpAddr;
 
-pub(crate) fn list_devices(flags: Vec<String>) {
+
+#[derive(Debug, Args)]
+pub struct List {}
+
+impl List {
+    pub async fn run(self) -> Result<(), ()> {
+        list_devices();
+        Ok(())
+    }
+}
+
+fn list_devices() {
     println!("Available network devices:");
     let devices = Device::list().expect("Error listing devices");
+
     for device in devices {
         let formatted_flags = format_flags(device.flags.if_flags);
-        let mut should_print = true;
-        for flag_name in &flags {
-            if !formatted_flags.contains(flag_name) {
-                should_print = false;
-            }
-        }
-        if formatted_flags.eq("None") && !flags.is_empty() {
-            should_print = false
-        }
-        if !should_print {
+
+        if !formatted_flags.contains("UP") {
             continue;
         }
+
         println!("Name: {}", device.name);
         println!("Description: {}", device.desc.unwrap_or("None".to_string()));
         println!(
