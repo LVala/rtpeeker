@@ -1,10 +1,7 @@
-use packet::Packet;
+use rtpeeker_common::Packet;
 use std::result;
 
-pub mod packet;
-pub mod rtcp;
-pub mod rtp;
-
+#[derive(Debug)]
 pub enum Error {
     FileNotFound,
     DeviceNotFound,
@@ -42,14 +39,16 @@ impl Sniffer<pcap::Active> {
 }
 
 impl<T: pcap::Activated> Sniffer<T> {
-    pub fn next_packet(&mut self) -> Result<Packet> {
-        let Ok(packet) = self.capture.next_packet() else {
-            return Err(Error::CouldntReceivePacket);
+    pub fn next_packet(&mut self) -> Option<Result<Packet>> {
+        let packet = match self.capture.next_packet() {
+            Ok(pack) => pack,
+            Err(pcap::Error::NoMorePackets) => return None,
+            Err(_) => return Some(Err(Error::CouldntReceivePacket)),
         };
 
         match Packet::build(&packet) {
-            Some(packet) => Ok(packet),
-            None => Err(Error::UnsupportedPacketType),
+            Some(packet) => Some(Ok(packet)),
+            None => Some(Err(Error::UnsupportedPacketType)),
         }
     }
 }

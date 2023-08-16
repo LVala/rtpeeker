@@ -9,7 +9,7 @@ fn main() {
             .start(
                 "the_canvas_id", // hardcode it
                 web_options,
-                Box::new(|cc| Box::new(rtpeeker_client::TemplateApp::new(cc))),
+                Box::new(|_cc| Box::<rtpeeker_client::ExampleApp>::default()),
             )
             .await
             .expect("failed to start eframe");

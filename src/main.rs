@@ -1,20 +1,12 @@
-// #[tokio::main]
-// async fn main() {
-//     warp::serve(warp::fs::dir("client/dist"))
-//         .run(([127, 0, 0, 1], 3550))
-//         .await;
-// }
+mod server;
+mod sniffer;
 
-use rtpeeker::sniffer;
+#[tokio::main]
+async fn main() {
+    pretty_env_logger::init();
 
-fn main() {
-    let Ok(mut sniffer) = sniffer::Sniffer::from_file("./pcap_examples/rtp.pcap") else {
-        println!("Cannot open file");
-        return;
-    };
+    let _sniffer = sniffer::Sniffer::from_device("lo");
+    let sniffer = sniffer::Sniffer::from_file("./pcap_examples/rtp.pcap").unwrap();
 
-    while let Ok(mut packet) = sniffer.next_packet() {
-        packet.parse_as(sniffer::packet::PacketType::RtpOverUdp);
-        println!("{:?}", packet);
-    }
+    server::run(sniffer, "127.0.0.1:3550".parse().unwrap()).await;
 }
