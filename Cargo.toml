@@ -12,5 +12,10 @@ tokio-stream = "0.1"
 warp = "0.3"
 futures-util = "0.3"
 pcap = "1.0.0"
+etherparse = "0.13.0"
+rtp = "0.6.8"
+rtcp = "0.7.2"
+webrtc-util = "0.7.0"
+clap = { version = "4", features = ["derive"] }
 
 # not using workspaces, as the crates use different targets

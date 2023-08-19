@@ -1,3 +1,6 @@
+use clap::{Parser, Subcommand};
+
+mod cmd;
 mod server;
 mod sniffer;
 
@@ -5,8 +8,31 @@ mod sniffer;
 async fn main() {
     pretty_env_logger::init();
 
-    let _sniffer = sniffer::Sniffer::from_device("lo");
-    let sniffer = sniffer::Sniffer::from_file("./pcap_examples/rtp.pcap").unwrap();
+    let cli = RtpeekerArgs::parse();
+    cli.run().await;
+}
 
-    server::run(sniffer, "127.0.0.1:3550".parse().unwrap()).await;
+#[derive(Debug, Parser)]
+#[clap(version, about)]
+struct RtpeekerArgs {
+    #[clap(subcommand)]
+    pub(crate) action: RtpeekerSubcommands,
+}
+
+impl RtpeekerArgs {
+    pub async fn run(self) {
+        match self.action {
+            RtpeekerSubcommands::Run(inner) => inner.run().await,
+            RtpeekerSubcommands::List(inner) => inner.run().await,
+        }
+    }
+}
+
+#[derive(Debug, Subcommand)]
+enum RtpeekerSubcommands {
+    /// Run the app
+    Run(cmd::run::Run),
+
+    /// List network interfaces
+    List(cmd::list::List),
 }
