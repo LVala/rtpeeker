@@ -13,13 +13,17 @@ pub enum Error {
 type Result<T> = result::Result<T, Error>;
 
 pub struct Sniffer<T: pcap::State> {
+    packet_id: usize,
     capture: pcap::Capture<T>,
 }
 
 impl Sniffer<pcap::Offline> {
     pub fn from_file(file: &str) -> Result<Self> {
         match pcap::Capture::from_file(file) {
-            Ok(capture) => Ok(Self { capture }),
+            Ok(capture) => Ok(Self {
+                packet_id: 0,
+                capture,
+            }),
             Err(_) => Err(Error::FileNotFound),
         }
     }
@@ -32,7 +36,10 @@ impl Sniffer<pcap::Active> {
         };
 
         match capture.open() {
-            Ok(capture) => Ok(Self { capture }),
+            Ok(capture) => Ok(Self {
+                packet_id: 0,
+                capture,
+            }),
             Err(_) => Err(Error::DeviceUnavailable),
         }
     }
@@ -46,7 +53,7 @@ impl<T: pcap::Activated> Sniffer<T> {
             Err(_) => return Some(Err(Error::CouldntReceivePacket)),
         };
 
-        match Packet::build(&packet) {
+        match Packet::build(&packet, self.packet_id) {
             Some(packet) => Some(Ok(packet)),
             None => Some(Err(Error::UnsupportedPacketType)),
         }

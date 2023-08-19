@@ -1,7 +1,8 @@
 use eframe::egui;
 use ewebsock::{WsEvent, WsMessage, WsReceiver, WsSender};
 use log::{error, warn};
-use rtpeeker_common::Packet;
+use rtpeeker_common::{Packet, Request};
+use std::collections::HashMap;
 
 #[derive(Default)]
 pub struct App {
@@ -40,19 +41,21 @@ impl App {
 }
 
 struct FrontEnd {
-    // ws_sender: WsSender,
+    ws_sender: WsSender,
     ws_receiver: WsReceiver,
     is_capturing: bool,
-    packets: Vec<Packet>,
+    // some kind of sparse vector would be the best
+    // but this will do
+    packets: HashMap<usize, Packet>,
 }
 
 impl FrontEnd {
-    fn new(_ws_sender: WsSender, ws_receiver: WsReceiver) -> Self {
+    fn new(ws_sender: WsSender, ws_receiver: WsReceiver) -> Self {
         Self {
-            // ws_sender,
+            ws_sender,
             ws_receiver,
             is_capturing: true,
-            packets: Vec::new(),
+            packets: HashMap::new(),
         }
     }
 
@@ -86,14 +89,16 @@ impl FrontEnd {
                     }
 
                     let button = side_button("🗑");
-                    ui.add(button)
+                    let resp = ui
+                        .add(button)
                         .on_hover_text("Discard previously captured packets");
                     if resp.clicked() {
                         self.packets.clear()
                     }
 
                     let button = side_button("↻");
-                    ui.add(button)
+                    let resp = ui
+                        .add(button)
                         .on_hover_text("Refetch all previously captured packets");
                     if resp.clicked() {
                         self.refetch_packets()
@@ -111,7 +116,7 @@ impl FrontEnd {
     fn receive_packets(&mut self) {
         while let Some(msg) = self.ws_receiver.try_recv() {
             let WsEvent::Message(msg) = msg else {
-                warn!("Received unexpected message: {:?}", msg);
+                warn!("Received special message: {:?}", msg);
                 continue;
             };
 
@@ -125,12 +130,20 @@ impl FrontEnd {
                 continue;
             };
 
-            self.packets.push(packet);
+            self.packets.insert(packet.id, packet);
         }
     }
 
-    fn refetch_packets(&self) {
-        todo!();
+    fn refetch_packets(&mut self) {
+        log::info!("Siema");
+        let request = Request::FetchAll;
+        let Ok(msg) = request.encode() else {
+            error!("Failed to encode a request message");
+            return;
+        };
+        let msg = WsMessage::Binary(msg);
+
+        self.ws_sender.send(msg);
     }
 }
 

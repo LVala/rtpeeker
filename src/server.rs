@@ -5,18 +5,15 @@ use std::sync::{
     Arc,
 };
 
-use futures_util::{
-    stream::{SplitSink, SplitStream},
-    SinkExt, StreamExt, TryFutureExt,
-};
+use futures_util::{stream::SplitStream, SinkExt, StreamExt, TryFutureExt};
 use log::{error, info};
-use tokio::sync::{mpsc, RwLock};
+use tokio::sync::{mpsc, mpsc::UnboundedSender, RwLock};
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use warp::ws::{Message, WebSocket};
 use warp::Filter;
 
 use rtpeeker_common::packet::PacketType;
-use rtpeeker_common::Packet;
+use rtpeeker_common::{Packet, Request};
 
 use crate::sniffer::Sniffer;
 
@@ -62,12 +59,12 @@ async fn client_connected(ws: WebSocket, packets: Packets, clients: Clients) {
 
     let (mut ws_tx, ws_rx) = ws.split();
 
-    send_all_packets(&packets, &mut ws_tx, client_id).await;
-
     // create channel to send incoming packets to client
     // and pass it to sniffer via shared state
-    let (tx, rx) = mpsc::unbounded_channel();
+    let (mut tx, rx) = mpsc::unbounded_channel();
     let mut rx = UnboundedReceiverStream::new(rx);
+
+    send_all_packets(&packets, &mut tx, client_id).await;
 
     tokio::task::spawn(async move {
         while let Some(message) = rx.next().await {
@@ -80,9 +77,10 @@ async fn client_connected(ws: WebSocket, packets: Packets, clients: Clients) {
         }
     });
 
-    clients.write().await.insert(client_id, tx);
+    let clients_tx = tx.clone();
+    clients.write().await.insert(client_id, clients_tx);
 
-    handle_messages(ws_rx, client_id).await;
+    handle_messages(ws_rx, tx, &packets, client_id).await;
 
     info!("Client disconnected, client_id: {}", client_id);
     clients.write().await.remove(&client_id);
@@ -112,7 +110,7 @@ async fn sniff<T: pcap::Activated>(mut sniffer: Sniffer<T>, packets: Packets, cl
 
 async fn send_all_packets(
     packets: &Packets,
-    ws_tx: &mut SplitSink<WebSocket, Message>,
+    ws_tx: &mut UnboundedSender<Message>,
     client_id: usize,
 ) {
     for pack in packets.read().await.iter() {
@@ -121,20 +119,10 @@ async fn send_all_packets(
             continue;
         };
         let msg = Message::binary(encoded);
-        ws_tx
-            .send(msg)
-            .unwrap_or_else(|e| {
-                error!("WebSocket `feed` error: {}, client_id: {}", e, client_id);
-            })
-            .await;
-    }
-
-    ws_tx
-        .flush()
-        .unwrap_or_else(|e| {
-            error!("WebSocket `flush` error: {}, client_id: {}", e, client_id);
+        ws_tx.send(msg).unwrap_or_else(|e| {
+            error!("WebSocket `feed` error: {}, client_id: {}", e, client_id);
         })
-        .await;
+    }
 
     info!(
         "Sucesfully send already captured packets, client_id: {}",
@@ -142,11 +130,26 @@ async fn send_all_packets(
     );
 }
 
-async fn handle_messages(mut ws_rx: SplitStream<WebSocket>, client_id: usize) {
-    // ignore incoming messages (as of now, TODO!)
+async fn handle_messages(
+    mut ws_rx: SplitStream<WebSocket>,
+    mut tx: UnboundedSender<Message>,
+    packets: &Packets,
+    client_id: usize,
+) {
     while let Some(result) = ws_rx.next().await {
         match result {
-            Ok(msg) => info!("Received message: {:?}, client_id: {}", msg, client_id),
+            Ok(msg) => {
+                info!("Received message: {:?}, client_id: {}", msg, client_id);
+                let msg = msg.into_bytes();
+                let Ok(req) = Request::decode(&msg) else {
+                    error!("Failed to decode request message");
+                    continue;
+                };
+
+                match req {
+                    Request::FetchAll => send_all_packets(packets, &mut tx, client_id).await,
+                };
+            }
             Err(e) => error!("WebSocket error: {}, client_id: {}", e, client_id),
         }
     }
