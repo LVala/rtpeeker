@@ -140,15 +140,17 @@ async fn handle_messages(
         match result {
             Ok(msg) => {
                 info!("Received message: {:?}, client_id: {}", msg, client_id);
-                let msg = msg.into_bytes();
-                let Ok(req) = Request::decode(&msg) else {
-                    error!("Failed to decode request message");
-                    continue;
-                };
+                if msg.is_binary() {
+                    let msg = msg.into_bytes();
+                    let Ok(req) = Request::decode(&msg) else {
+                        error!("Failed to decode request message");
+                        continue;
+                    };
 
-                match req {
-                    Request::FetchAll => send_all_packets(packets, &mut tx, client_id).await,
-                };
+                    match req {
+                        Request::FetchAll => send_all_packets(packets, &mut tx, client_id).await,
+                    };
+                }
             }
             Err(e) => error!("WebSocket error: {}, client_id: {}", e, client_id),
         }

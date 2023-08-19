@@ -54,7 +54,10 @@ impl<T: pcap::Activated> Sniffer<T> {
         };
 
         match Packet::build(&packet, self.packet_id) {
-            Some(packet) => Some(Ok(packet)),
+            Some(packet) => {
+                self.packet_id += 1;
+                Some(Ok(packet))
+            }
             None => Some(Err(Error::UnsupportedPacketType)),
         }
     }

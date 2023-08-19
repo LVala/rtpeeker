@@ -65,6 +65,7 @@ impl FrontEnd {
         }
 
         let mut style = (*ctx.style()).clone();
+        style.spacing.item_spacing = (0.0, 8.0).into();
         for (_text_style, font_id) in style.text_styles.iter_mut() {
             font_id.size = 20.0;
         }
@@ -76,14 +77,21 @@ impl FrontEnd {
                 ui.vertical_centered(|ui| {
                     ui.set_style(style);
 
+                    // I'm struggling to add margin...
+                    ui.add_space(6.0);
+
                     let button = side_button("▶");
-                    let resp = ui.add(button).on_hover_text("Resume packet capturing");
+                    let resp = ui
+                        .add_enabled(!self.is_capturing, button)
+                        .on_hover_text("Resume packet capturing");
                     if resp.clicked() {
                         self.is_capturing = true
                     }
 
                     let button = side_button("⏸");
-                    let resp = ui.add(button).on_hover_text("Stop packet capturing");
+                    let resp = ui
+                        .add_enabled(self.is_capturing, button)
+                        .on_hover_text("Stop packet capturing");
                     if resp.clicked() {
                         self.is_capturing = false
                     }
@@ -108,8 +116,16 @@ impl FrontEnd {
 
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
+                // TEMPORARY
                 let _ = ui.button("♡ example button");
             });
+        });
+
+        // TEMPORARY
+        egui::CentralPanel::default().show(ctx, |ui| {
+            for (_id, packet) in self.packets.iter() {
+                ui.label(format!("{:?}", packet));
+            }
         });
     }
 
