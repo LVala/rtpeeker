@@ -1,10 +1,15 @@
 use clap::{Parser, Subcommand};
-use rtpeeker::cmd;
+
+mod cmd;
+mod server;
+mod sniffer;
 
 #[tokio::main]
-async fn main() -> Result<(), ()> {
+async fn main() {
+    pretty_env_logger::init();
+
     let cli = RtpeekerArgs::parse();
-    cli.run().await
+    cli.run().await;
 }
 
 #[derive(Debug, Parser)]
@@ -15,7 +20,7 @@ struct RtpeekerArgs {
 }
 
 impl RtpeekerArgs {
-    pub async fn run(self) -> Result<(), ()> {
+    pub async fn run(self) {
         match self.action {
             RtpeekerSubcommands::Run(inner) => inner.run().await,
             RtpeekerSubcommands::List(inner) => inner.run().await,

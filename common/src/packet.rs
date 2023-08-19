@@ -1,16 +1,16 @@
-use super::{rtcp::RtcpPacket, rtp::RtpPacket};
+use super::{RtcpPacket, RtpPacket};
+use bincode;
+use serde::{Deserialize, Serialize};
+use std::net::SocketAddr;
+use std::time::Duration;
+
+#[cfg(not(target_arch = "wasm32"))]
 use etherparse::{
     IpHeader::{self, Version4, Version6},
     Ipv4Header, Ipv6Header, PacketHeaders, TcpHeader,
     TransportHeader::{self, Tcp, Udp},
     UdpHeader,
 };
-use std::net::{
-    IpAddr::{V4, V6},
-    Ipv4Addr, Ipv6Addr, SocketAddr,
-};
-use std::ops::Add;
-use std::time::Duration;
 
 #[derive(Debug)]
 pub enum PacketType {
@@ -18,22 +18,22 @@ pub enum PacketType {
     RtcpOverUdp,
 }
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
 pub enum TransportProtocol {
     Tcp,
     Udp,
 }
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum SessionPacket {
     Unknown,
     Rtp(RtpPacket),
     Rtcp(Vec<RtcpPacket>),
 }
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Packet {
-    pub payload: Vec<u8>,
+    pub payload: Option<Vec<u8>>,
     pub timestamp: Duration,
     pub length: u32,
     pub source_addr: SocketAddr,
@@ -42,6 +42,13 @@ pub struct Packet {
     pub contents: SessionPacket,
 }
 
+impl Packet {
+    pub fn decode(bytes: &[u8]) -> Result<Self, bincode::Error> {
+        bincode::deserialize(bytes)
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
 impl Packet {
     pub fn build(raw_packet: &pcap::Packet) -> Option<Self> {
         let Ok(packet) = PacketHeaders::from_ethernet_slice(raw_packet) else {
@@ -60,7 +67,7 @@ impl Packet {
         let duration = get_duration(raw_packet);
 
         Some(Self {
-            payload: packet.payload.to_vec(),
+            payload: Some(packet.payload.to_vec()),
             length: raw_packet.header.len,
             timestamp: duration,
             source_addr,
@@ -68,6 +75,20 @@ impl Packet {
             transport_protocol,
             contents: SessionPacket::Unknown,
         })
+    }
+
+    pub fn encode(&self) -> Result<Vec<u8>, bincode::Error> {
+        // TODO: need a nicer way to temporarily get rid of payload field
+        let wo_payload = Self {
+            payload: None,
+            timestamp: self.timestamp,
+            length: self.length,
+            source_addr: self.source_addr,
+            destination_addr: self.destination_addr,
+            transport_protocol: self.transport_protocol,
+            contents: self.contents.clone(),
+        };
+        bincode::serialize(&wo_payload)
     }
 
     pub fn parse_as(&mut self, packet_type: PacketType) {
@@ -80,6 +101,7 @@ impl Packet {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn get_transport_protocol(transport: &TransportHeader) -> Option<TransportProtocol> {
     let protocol = match transport {
         Udp(_) => TransportProtocol::Udp,
@@ -90,7 +112,10 @@ fn get_transport_protocol(transport: &TransportHeader) -> Option<TransportProtoc
     Some(protocol)
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn get_duration(raw_packet: &pcap::Packet) -> Duration {
+    use std::ops::Add;
+
     // i64 -> u64, but seconds should never be negative
     let secs = raw_packet.header.ts.tv_sec.try_into().unwrap();
     let micrs = raw_packet.header.ts.tv_usec.try_into().unwrap();
@@ -101,10 +126,16 @@ fn get_duration(raw_packet: &pcap::Packet) -> Duration {
     sec_duration.add(micros_duration)
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn convert_addr(
     ip_header: &IpHeader,
     transport: &TransportHeader,
 ) -> Option<(SocketAddr, SocketAddr)> {
+    use std::net::{
+        IpAddr::{V4, V6},
+        Ipv4Addr, Ipv6Addr,
+    };
+
     let (source_port, dest_port) = match *transport {
         Udp(UdpHeader {
             source_port,
@@ -157,6 +188,7 @@ fn convert_addr(
     Some((source, destination))
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn to_u16(buf: &[u8; 16]) -> Vec<u16> {
     buf.iter()
         .step_by(2)
@@ -166,6 +198,7 @@ fn to_u16(buf: &[u8; 16]) -> Vec<u16> {
 }
 
 #[cfg(test)]
+#[cfg(not(target_arch = "wasm32"))]
 mod tests {
     use super::*;
 

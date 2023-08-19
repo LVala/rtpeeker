@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+rtpeeker_common = { path = "../common" }
 egui = "0.22.0"
 eframe = { version = "0.22.0", default-features = false, features = [
     "default_fonts",
@@ -11,6 +12,7 @@ eframe = { version = "0.22.0", default-features = false, features = [
 ] }
 log = "0.4"
 wasm-bindgen-futures = "0.4"
+ewebsock = "0.2"
 
 [profile.release]
 opt-level = 2 # fast and small wasm

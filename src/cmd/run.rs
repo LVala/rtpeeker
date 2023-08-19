@@ -1,8 +1,7 @@
-use crate::sniffer;
+use crate::server;
+use crate::sniffer::Sniffer;
 use clap::Args;
-use sniffer::Sniffer;
 use std::net::SocketAddr;
-use std::ops::Add;
 
 #[derive(Debug, Args)]
 pub struct Run {
@@ -20,58 +19,40 @@ pub struct Run {
 }
 
 impl Run {
-    pub async fn run(self) -> Result<(), ()> {
-        if self.file {
-            self.analyze_file()
-                .await
-                .expect("analyze file failed");
-        } else {
-            self.capture_packets()
-                .await
-                .expect("capture packets failed");
-        }
-        Ok(())
-    }
-
-    async fn analyze_file(self) -> Result<(), ()> {
-        let Ok(mut sniffer) = Sniffer::from_file(self.input.as_str()) else {
-            println!("Cannot open file");
-            return Err(());
-        };
-
-        while let Ok(mut packet) = sniffer.next_packet() {
-            packet.parse_as(sniffer::packet::PacketType::RtpOverUdp);
-            println!("{:?}", packet);
-        }
-        self.warp_serve().await
-    }
-
-    async fn capture_packets(self) -> Result<(), ()> {
-        let Ok(mut sniffer) = Sniffer::from_device(self.input.as_str()) else {
-            println!("Cannot open network interface");
-            return Err(());
-        };
-
-        while let Ok(mut packet) = sniffer.next_packet() {
-            packet.parse_as(sniffer::packet::PacketType::RtpOverUdp);
-            println!("{:?}", packet);
-        }
-        self.warp_serve().await
-    }
-
-    async fn warp_serve(self) -> Result<(), ()> {
-        let address = self.address.unwrap_or("0.0.0.0".to_string());
+    pub async fn run(self) {
+        let ip = self.address.unwrap_or("0.0.0.0".to_string());
         let port = self.port.unwrap_or("8080".to_string());
-        let combined = address.add(port.as_str());
-        if let Ok(socket_addr) = combined.parse() {
-            let socket: SocketAddr = socket_addr;
-            warp::serve(warp::fs::dir("client/dist")).run(socket).await;
-            Ok(())
-        } else {
+        let address = format!("{ip}:{port}");
+
+        let Ok(address) = address.parse() else {
             println!(
-                "Parsing socket address failed. Expected 168.192.1.3:422 or [2001:db8::1]:8080 "
+                "Error: IP address or port are invalid"
             );
-            Err(())
+            return;
+        };
+
+        if self.file {
+            analyze_file(self.input, address).await
+        } else {
+            capture_packets(self.input, address).await
         }
     }
+}
+
+async fn analyze_file(file: String, address: SocketAddr) {
+    let Ok(sniffer) = Sniffer::from_file(&file) else {
+        println!("Error:cannot open network interface");
+        return;
+    };
+
+    server::run(sniffer, address).await;
+}
+
+async fn capture_packets(interface: String, address: SocketAddr) {
+    let Ok(sniffer) = Sniffer::from_device(&interface) else {
+        println!("Error: cannot open network interface");
+        return;
+    };
+
+    server::run(sniffer, address).await;
 }

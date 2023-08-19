@@ -1,45 +1,39 @@
 use clap::Args;
-use pcap::{ConnectionStatus, Device, IfFlags};
+use pcap::{Device, IfFlags};
 use std::net::IpAddr;
-use warp::redirect::permanent;
 
 #[derive(Debug, Args)]
 pub struct List {}
 
 impl List {
-    pub async fn run(self) -> Result<(), ()> {
-        list_devices();
-        Ok(())
-    }
-}
+    pub async fn run(self) {
+        let devices = Device::list().expect("Error listing devices");
 
-fn list_devices() {
-    let devices = Device::list().expect("Error listing devices");
+        for (ix, device) in devices.iter().enumerate() {
+            let formatted_flags = format_flags(device.flags.if_flags);
 
-    for (ix, device) in devices.iter().enumerate() {
-        let formatted_flags = format_flags(device.flags.if_flags);
-
-        if !formatted_flags.contains("up") || device.addresses.is_empty() {
-            continue;
-        }
-
-        println!("{}. {} ({})", ix, device.name, formatted_flags);
-        println!("Addrs:");
-        for address in &device.addresses {
-            println!(
-                "  {} (mask {})",
-                format_ip_addr(&address.addr),
-                format_optional_ip(&address.netmask)
-            );
-
-            if let Some(broadcast) = address.broadcast_addr {
-                println!("  {} (broadcast)", broadcast.to_string());
+            if !formatted_flags.contains("up") || device.addresses.is_empty() {
+                continue;
             }
-            if let Some(destination) = address.dst_addr {
-                println!("  {} (destination)", destination.to_string());
+
+            println!("{}. {} ({})", ix, device.name, formatted_flags);
+            println!("Addrs:");
+            for address in &device.addresses {
+                println!(
+                    "  {} (mask {})",
+                    format_ip_addr(&address.addr),
+                    format_optional_ip(&address.netmask)
+                );
+
+                if let Some(broadcast) = address.broadcast_addr {
+                    println!("  {} (broadcast)", broadcast.to_string());
+                }
+                if let Some(destination) = address.dst_addr {
+                    println!("  {} (destination)", destination.to_string());
+                }
             }
+            println!()
         }
-        println!()
     }
 }
 
