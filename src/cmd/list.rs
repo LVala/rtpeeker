@@ -24,13 +24,6 @@ impl List {
                     format_ip_addr(&address.addr),
                     format_optional_ip(&address.netmask)
                 );
-
-                if let Some(broadcast) = address.broadcast_addr {
-                    println!("  {} (broadcast)", broadcast.to_string());
-                }
-                if let Some(destination) = address.dst_addr {
-                    println!("  {} (destination)", destination.to_string());
-                }
             }
             println!()
         }
