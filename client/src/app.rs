@@ -42,6 +42,7 @@ impl App {
 struct FrontEnd {
     // ws_sender: WsSender,
     ws_receiver: WsReceiver,
+    is_capturing: bool,
     packets: Vec<Packet>,
 }
 
@@ -50,12 +51,61 @@ impl FrontEnd {
         Self {
             // ws_sender,
             ws_receiver,
+            is_capturing: true,
             packets: Vec::new(),
         }
     }
 
-    fn ui(&mut self, _ctx: &egui::Context) {
-        self.receive_packets();
+    fn ui(&mut self, ctx: &egui::Context) {
+        if self.is_capturing {
+            self.receive_packets()
+        }
+
+        let mut style = (*ctx.style()).clone();
+        for (_text_style, font_id) in style.text_styles.iter_mut() {
+            font_id.size = 20.0;
+        }
+
+        egui::SidePanel::left("side_panel")
+            .resizable(false)
+            .default_width(32.0)
+            .show(ctx, |ui| {
+                ui.vertical_centered(|ui| {
+                    ui.set_style(style);
+
+                    let button = side_button("▶");
+                    let resp = ui.add(button).on_hover_text("Resume packet capturing");
+                    if resp.clicked() {
+                        self.is_capturing = true
+                    }
+
+                    let button = side_button("⏸");
+                    let resp = ui.add(button).on_hover_text("Stop packet capturing");
+                    if resp.clicked() {
+                        self.is_capturing = false
+                    }
+
+                    let button = side_button("🗑");
+                    ui.add(button)
+                        .on_hover_text("Discard previously captured packets");
+                    if resp.clicked() {
+                        self.packets.clear()
+                    }
+
+                    let button = side_button("↻");
+                    ui.add(button)
+                        .on_hover_text("Refetch all previously captured packets");
+                    if resp.clicked() {
+                        self.refetch_packets()
+                    }
+                });
+            });
+
+        egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
+            egui::menu::bar(ui, |ui| {
+                let _ = ui.button("♡ example button");
+            });
+        });
     }
 
     fn receive_packets(&mut self) {
@@ -78,4 +128,14 @@ impl FrontEnd {
             self.packets.push(packet);
         }
     }
+
+    fn refetch_packets(&self) {
+        todo!();
+    }
+}
+
+fn side_button(text: &str) -> egui::Button {
+    egui::Button::new(text)
+        .min_size((30.0, 30.0).into())
+        .rounding(egui::Rounding::same(9.0))
 }
