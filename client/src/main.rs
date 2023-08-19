@@ -1,3 +1,7 @@
+use rtpeeker_client::App;
+
+static CANVAS_ID: &str = "the_canvas_id";
+
 fn main() {
     // Redirect `log` message to `console.log` and friends:
     eframe::WebLogger::init(log::LevelFilter::Debug).ok();
@@ -7,9 +11,9 @@ fn main() {
     wasm_bindgen_futures::spawn_local(async {
         eframe::WebRunner::new()
             .start(
-                "the_canvas_id", // hardcode it
+                CANVAS_ID,
                 web_options,
-                Box::new(|_cc| Box::<rtpeeker_client::ExampleApp>::default()),
+                Box::new(|_cc| Box::<App>::default()),
             )
             .await
             .expect("failed to start eframe");

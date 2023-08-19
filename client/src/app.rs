@@ -1,31 +1,18 @@
 use eframe::egui;
 use ewebsock::{WsEvent, WsMessage, WsReceiver, WsSender};
+use log::{error, warn};
 use rtpeeker_common::Packet;
 
 #[derive(Default)]
-pub struct ExampleApp {
-    url: String,
-    error: String,
+pub struct App {
+    is_connected: bool,
     frontend: Option<FrontEnd>,
 }
 
-impl eframe::App for ExampleApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::TopBottomPanel::top("server").show(ctx, |ui| {
-            ui.horizontal(|ui| {
-                if ui.button("Connect to WS").clicked() {
-                    self.connect(ctx.clone());
-                }
-            });
-        });
-
-        if !self.error.is_empty() {
-            egui::TopBottomPanel::top("error").show(ctx, |ui| {
-                ui.horizontal(|ui| {
-                    ui.label("Error:");
-                    ui.colored_label(egui::Color32::RED, &self.error);
-                });
-            });
+impl eframe::App for App {
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        if !self.is_connected {
+            self.connect(ctx.clone(), frame);
         }
 
         if let Some(frontend) = &mut self.frontend {
@@ -34,70 +21,61 @@ impl eframe::App for ExampleApp {
     }
 }
 
-impl ExampleApp {
-    fn connect(&mut self, ctx: egui::Context) {
+impl App {
+    fn connect(&mut self, ctx: egui::Context, frame: &eframe::Frame) {
+        let host = frame.info().web_info.location.host;
+        let uri = format!("ws://{}/ws", host);
+
         let wakeup = move || ctx.request_repaint(); // wake up UI thread on new message
-        match ewebsock::connect_with_wakeup("ws://127.0.0.1:3550/ws", wakeup) {
+        match ewebsock::connect_with_wakeup(uri, wakeup) {
             Ok((ws_sender, ws_receiver)) => {
                 self.frontend = Some(FrontEnd::new(ws_sender, ws_receiver));
-                self.error.clear();
+                self.is_connected = true;
             }
-            Err(error) => {
-                log::error!("Failed to connect to {:?}: {}", &self.url, error);
-                self.error = error;
+            Err(err) => {
+                error!("Failed to connect to WebSocket: {}", err);
             }
         }
     }
 }
 
 struct FrontEnd {
-    ws_sender: WsSender,
+    // ws_sender: WsSender,
     ws_receiver: WsReceiver,
-    events: Vec<WsEvent>,
-    text_to_send: String,
+    packets: Vec<Packet>,
 }
 
 impl FrontEnd {
-    fn new(ws_sender: WsSender, ws_receiver: WsReceiver) -> Self {
+    fn new(_ws_sender: WsSender, ws_receiver: WsReceiver) -> Self {
         Self {
-            ws_sender,
+            // ws_sender,
             ws_receiver,
-            events: Default::default(),
-            text_to_send: Default::default(),
+            packets: Vec::new(),
         }
     }
 
-    fn ui(&mut self, ctx: &egui::Context) {
-        while let Some(event) = self.ws_receiver.try_recv() {
-            self.events.push(event);
+    fn ui(&mut self, _ctx: &egui::Context) {
+        self.receive_packets();
+    }
+
+    fn receive_packets(&mut self) {
+        while let Some(msg) = self.ws_receiver.try_recv() {
+            let WsEvent::Message(msg) = msg else {
+                warn!("Received unexpected message: {:?}", msg);
+                continue;
+            };
+
+            let WsMessage::Binary(msg) = msg else {
+                warn!("Received unexpected message: {:?}", msg);
+                continue;
+            };
+
+            let Ok(packet) = Packet::decode(&msg) else {
+                warn!("Failed to decode message: {:?}", msg);
+                continue;
+            };
+
+            self.packets.push(packet);
         }
-
-        egui::CentralPanel::default().show(ctx, |ui| {
-            ui.horizontal(|ui| {
-                ui.label("Message to send:");
-                if ui.text_edit_singleline(&mut self.text_to_send).lost_focus()
-                    && ui.input(|i| i.key_pressed(egui::Key::Enter))
-                {
-                    self.ws_sender
-                        .send(WsMessage::Text(std::mem::take(&mut self.text_to_send)));
-                }
-            });
-
-            ui.separator();
-            ui.heading("Received events:");
-            for event in &self.events {
-                match event {
-                    WsEvent::Message(msg) => {
-                        if let WsMessage::Binary(bin) = msg {
-                            let packet = Packet::decode(bin);
-                            ui.label(format!("{:?}", packet.unwrap()));
-                        };
-                    }
-                    other => {
-                        ui.label(format!("{:?}", other));
-                    }
-                };
-            }
-        });
     }
 }
