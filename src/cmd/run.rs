@@ -3,6 +3,9 @@ use crate::sniffer::Sniffer;
 use clap::Args;
 use std::net::SocketAddr;
 
+static DEFAULT_PORT: &str = "3550";
+static DEFAULT_IP: &str = "0.0.0.0";
+
 #[derive(Debug, Args)]
 pub struct Run {
     /// Interface name, if file flag, then it is path to pcap file
@@ -13,15 +16,15 @@ pub struct Run {
     /// ip address, if not specified, 0.0.0.0 is used
     #[arg(short, long)]
     address: Option<String>,
-    /// port, if not specified, 8080 is used
+    /// port, if not specified, 3550 is used
     #[arg(short, long)]
     port: Option<String>,
 }
 
 impl Run {
     pub async fn run(self) {
-        let ip = self.address.unwrap_or("0.0.0.0".to_string());
-        let port = self.port.unwrap_or("8080".to_string());
+        let ip = self.address.unwrap_or(DEFAULT_IP.to_string());
+        let port = self.port.unwrap_or(DEFAULT_PORT.to_string());
         let address = format!("{ip}:{port}");
 
         let Ok(address) = address.parse() else {
