@@ -1,7 +1,7 @@
 use clap::Args;
 use pcap::{ConnectionStatus, Device, IfFlags};
 use std::net::IpAddr;
-
+use warp::redirect::permanent;
 
 #[derive(Debug, Args)]
 pub struct List {}
@@ -14,41 +14,32 @@ impl List {
 }
 
 fn list_devices() {
-    println!("Available network devices:");
     let devices = Device::list().expect("Error listing devices");
 
-    for device in devices {
+    for (ix, device) in devices.iter().enumerate() {
         let formatted_flags = format_flags(device.flags.if_flags);
 
-        if !formatted_flags.contains("UP") {
+        if !formatted_flags.contains("up") || device.addresses.is_empty() {
             continue;
         }
 
-        println!("Name: {}", device.name);
-        println!("Description: {}", device.desc.unwrap_or("None".to_string()));
-        println!(
-            "Addresses: {}",
-            if device.addresses.is_empty() {
-                "None"
-            } else {
-                ""
-            }
-        );
+        println!("{}. {} ({})", ix, device.name, formatted_flags);
+        println!("Addrs:");
         for address in &device.addresses {
-            println!("  Address: {}", format_ip_addr(&address.addr));
-            println!("  Netmask: {}", format_optional_ip(&address.netmask));
             println!(
-                "  Broadcast: {}",
-                format_optional_ip(&address.broadcast_addr)
+                "  {} (mask {})",
+                format_ip_addr(&address.addr),
+                format_optional_ip(&address.netmask)
             );
-            println!("  Destination: {}\n", format_optional_ip(&address.dst_addr));
+
+            if let Some(broadcast) = address.broadcast_addr {
+                println!("  {} (broadcast)", broadcast.to_string());
+            }
+            if let Some(destination) = address.dst_addr {
+                println!("  {} (destination)", destination.to_string());
+            }
         }
-        println!("Flags: {}", formatted_flags);
-        println!(
-            "Connection status: {}",
-            format_connection_status(device.flags.connection_status)
-        );
-        println!("--------------------------------------\n");
+        println!()
     }
 }
 
@@ -56,31 +47,22 @@ fn format_flags(flags: IfFlags) -> String {
     let mut result = Vec::new();
 
     if flags.contains(IfFlags::LOOPBACK) {
-        result.push("LOOPBACK");
+        result.push("loopback");
     }
     if flags.contains(IfFlags::UP) {
-        result.push("UP");
+        result.push("up");
     }
     if flags.contains(IfFlags::RUNNING) {
-        result.push("RUNNING");
+        result.push("running");
     }
     if flags.contains(IfFlags::WIRELESS) {
-        result.push("WIRELESS");
+        result.push("wireless");
     }
 
     if result.is_empty() {
         result.push("None")
     }
     result.join(" | ")
-}
-
-fn format_connection_status(status: ConnectionStatus) -> String {
-    match status {
-        ConnectionStatus::Unknown => "Unknown".to_string(),
-        ConnectionStatus::Connected => "Connected".to_string(),
-        ConnectionStatus::Disconnected => "Disconnected".to_string(),
-        ConnectionStatus::NotApplicable => "None".to_string(),
-    }
 }
 
 fn format_ip_addr(ip: &IpAddr) -> String {

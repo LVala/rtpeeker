@@ -4,12 +4,11 @@ use rtpeeker::cmd;
 #[tokio::main]
 async fn main() -> Result<(), ()> {
     let cli = RtpeekerArgs::parse();
-
     cli.run().await
 }
 
 #[derive(Debug, Parser)]
-#[clap(author = "Łukasz Wala", version, about)]
+#[clap(version, about)]
 struct RtpeekerArgs {
     #[clap(subcommand)]
     pub(crate) action: RtpeekerSubcommands,
