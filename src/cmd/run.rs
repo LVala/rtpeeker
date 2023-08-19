@@ -44,7 +44,7 @@ impl Run {
 
 async fn analyze_file(file: String, address: SocketAddr) {
     let Ok(sniffer) = Sniffer::from_file(&file) else {
-        println!("Error:cannot open network interface");
+        println!("Error:cannot open the file");
         return;
     };
 
@@ -53,7 +53,7 @@ async fn analyze_file(file: String, address: SocketAddr) {
 
 async fn capture_packets(interface: String, address: SocketAddr) {
     let Ok(sniffer) = Sniffer::from_device(&interface) else {
-        println!("Error: cannot open network interface");
+        println!("Error: cannot open the network interface");
         return;
     };
 
