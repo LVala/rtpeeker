@@ -24,7 +24,7 @@ impl eframe::App for App {
 
 impl App {
     fn connect(&mut self, ctx: egui::Context, frame: &eframe::Frame) {
-        let host = frame.info().web_info.location.host;
+        let host = Self::get_host(frame);
         let uri = format!("ws://{}/ws", host);
 
         let wakeup = move || ctx.request_repaint(); // wake up UI thread on new message
@@ -37,6 +37,17 @@ impl App {
                 error!("Failed to connect to WebSocket: {}", err);
             }
         }
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    fn get_host(frame: &eframe::Frame) -> String {
+        frame.info().web_info.location.host
+    }
+
+    // ugly trick to allow running tests in CI on host target
+    #[cfg(not(target_arch = "wasm32"))]
+    fn get_host(frame: &eframe::Frame) -> String {
+        "test_host".to_string()
     }
 }
 
