@@ -34,6 +34,7 @@ pub enum SessionPacket {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Packet {
     pub payload: Option<Vec<u8>>,
+    pub id: usize,
     pub timestamp: Duration,
     pub length: u32,
     pub source_addr: SocketAddr,
@@ -50,7 +51,7 @@ impl Packet {
 
 #[cfg(not(target_arch = "wasm32"))]
 impl Packet {
-    pub fn build(raw_packet: &pcap::Packet) -> Option<Self> {
+    pub fn build(raw_packet: &pcap::Packet, id: usize) -> Option<Self> {
         let Ok(packet) = PacketHeaders::from_ethernet_slice(raw_packet) else {
             return None;
         };
@@ -68,6 +69,7 @@ impl Packet {
 
         Some(Self {
             payload: Some(packet.payload.to_vec()),
+            id,
             length: raw_packet.header.len,
             timestamp: duration,
             source_addr,
@@ -81,6 +83,7 @@ impl Packet {
         // TODO: need a nicer way to temporarily get rid of payload field
         let wo_payload = Self {
             payload: None,
+            id: self.id,
             timestamp: self.timestamp,
             length: self.length,
             source_addr: self.source_addr,
