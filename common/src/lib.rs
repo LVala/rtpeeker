@@ -1,5 +1,4 @@
-use serde::{Serialize, Deserialize};
-use bincode;
+use serde::{Deserialize, Serialize};
 
 pub use crate::rtcp::RtcpPacket;
 pub use crate::rtp::RtpPacket;
@@ -11,7 +10,7 @@ pub mod rtp;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Request {
-    FetchAll
+    FetchAll,
 }
 
 impl Request {
