@@ -74,10 +74,9 @@ impl FrontEnd {
             .resizable(false)
             .default_width(32.0)
             .show(ctx, |ui| {
+                ui.set_style(style);
                 ui.vertical_centered(|ui| {
-                    ui.set_style(style);
-
-                    // I'm struggling to add margin...
+                    // I'm struggling to add a margin...
                     ui.add_space(6.0);
 
                     let button = side_button("▶");
@@ -111,6 +110,12 @@ impl FrontEnd {
                     if resp.clicked() {
                         self.refetch_packets()
                     }
+                });
+
+                ui.with_layout(egui::Layout::bottom_up(egui::Align::Center), |ui| {
+                    ui.add_space(8.0);
+
+                    egui::widgets::global_dark_light_mode_switch(ui);
                 });
             });
 
@@ -151,7 +156,6 @@ impl FrontEnd {
     }
 
     fn refetch_packets(&mut self) {
-        log::info!("Siema");
         let request = Request::FetchAll;
         let Ok(msg) = request.encode() else {
             error!("Failed to encode a request message");
