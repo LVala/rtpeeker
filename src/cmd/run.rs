@@ -8,12 +8,12 @@ static DEFAULT_IP: &str = "0.0.0.0";
 
 #[derive(Debug, Args)]
 pub struct Run {
-    /// Interface name, if file flag, then it is path to pcap file
+    /// Network interface name or file path
     input: String,
-    /// File path
+    /// If set, input argument will be treated as a file path, not interface name
     #[arg(short, long, default_value_t = false)]
     file: bool,
-    /// ip address, if not specified, 0.0.0.0 is used
+    /// IP address, if not specified, 0.0.0.0 is used
     #[arg(short, long)]
     address: Option<String>,
     /// port, if not specified, 3550 is used

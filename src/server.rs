@@ -47,7 +47,7 @@ pub async fn run<T: pcap::Activated + 'static>(sniffer: Sniffer<T>, addr: Socket
 
     let routes = ws.or(warp::fs::dir(DIST_DIR));
 
-    println!("RTPeeker running on {}", addr);
+    println!("RTPeeker running on http://{}/", addr);
 
     warp::serve(routes).run(addr).await;
 }
