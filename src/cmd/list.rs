@@ -7,26 +7,29 @@ pub struct List {}
 
 impl List {
     pub async fn run(self) {
-        let devices = Device::list().expect("Error listing devices");
-
-        for (ix, device) in devices.iter().enumerate() {
-            let formatted_flags = format_flags(device.flags.if_flags);
-
-            if !formatted_flags.contains("up") || device.addresses.is_empty() {
-                continue;
-            }
-
-            println!("{}. {} ({})", ix, device.name, formatted_flags);
-            println!("Addrs:");
-            for address in &device.addresses {
-                println!(
-                    "  {} (mask {})",
-                    format_ip_addr(&address.addr),
-                    format_optional_ip(&address.netmask)
-                );
-            }
-            println!()
-        }
+        Device::list()
+            .expect("Error occured while listing devices")
+            .iter()
+            .filter(|device| {
+                (device.flags.if_flags.contains(IfFlags::UP) && !device.addresses.is_empty())
+                    || device.name == "any"
+            })
+            .enumerate()
+            .for_each(|(ix, device)| {
+                let flags = format_flags(device.flags.if_flags);
+                println!("{}. {} ({})", ix, device.name, flags);
+                if !device.addresses.is_empty() {
+                    println!("Addrs:");
+                }
+                for address in &device.addresses {
+                    println!(
+                        "  {} (mask {})",
+                        format_ip_addr(&address.addr),
+                        format_optional_ip(&address.netmask)
+                    );
+                }
+                println!();
+            });
     }
 }
 
