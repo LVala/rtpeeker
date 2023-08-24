@@ -1,76 +1,41 @@
 use eframe::egui;
 use ewebsock::{WsEvent, WsMessage, WsReceiver, WsSender};
 use log::{error, warn};
+use packets_table::PacketsTable;
 use rtpeeker_common::{Packet, Request};
+use std::cell::RefCell;
 use std::collections::HashMap;
+use std::rc::Rc;
 
-#[derive(Default)]
-pub struct App {
-    is_connected: bool,
-    frontend: Option<FrontEnd>,
-}
+mod packets_table;
 
-impl eframe::App for App {
-    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-        if !self.is_connected {
-            self.connect(ctx.clone(), frame);
-        }
+type Packets = Rc<RefCell<HashMap<usize, Packet>>>;
 
-        if let Some(frontend) = &mut self.frontend {
-            frontend.ui(ctx);
-        }
-    }
-}
-
-impl App {
-    fn connect(&mut self, ctx: egui::Context, frame: &eframe::Frame) {
-        let host = Self::get_host(frame);
-        let uri = format!("ws://{}/ws", host);
-
-        let wakeup = move || ctx.request_repaint(); // wake up UI thread on new message
-        match ewebsock::connect_with_wakeup(uri, wakeup) {
-            Ok((ws_sender, ws_receiver)) => {
-                self.frontend = Some(FrontEnd::new(ws_sender, ws_receiver));
-                self.is_connected = true;
-            }
-            Err(err) => {
-                error!("Failed to connect to WebSocket: {}", err);
-            }
-        }
-    }
-
-    #[cfg(target_arch = "wasm32")]
-    fn get_host(frame: &eframe::Frame) -> String {
-        frame.info().web_info.location.host
-    }
-
-    // ugly trick to allow running tests in CI on host target
-    #[cfg(not(target_arch = "wasm32"))]
-    fn get_host(frame: &eframe::Frame) -> String {
-        "test_host".to_string()
-    }
-}
-
-struct FrontEnd {
+pub struct Gui {
     ws_sender: WsSender,
     ws_receiver: WsReceiver,
     is_capturing: bool,
     // some kind of sparse vector would be the best
     // but this will do
-    packets: HashMap<usize, Packet>,
+    packets: Packets,
+    packets_table: PacketsTable,
 }
 
-impl FrontEnd {
-    fn new(ws_sender: WsSender, ws_receiver: WsReceiver) -> Self {
+impl Gui {
+    pub fn new(ws_sender: WsSender, ws_receiver: WsReceiver) -> Self {
+        let packets = Packets::default();
+        let packets_table = PacketsTable::new(packets.clone());
+
         Self {
             ws_sender,
             ws_receiver,
             is_capturing: true,
-            packets: HashMap::new(),
+            packets,
+            packets_table,
         }
     }
 
-    fn ui(&mut self, ctx: &egui::Context) {
+    pub fn ui(&mut self, ctx: &egui::Context) {
         if self.is_capturing {
             self.receive_packets()
         }
@@ -111,7 +76,7 @@ impl FrontEnd {
                         .add(button)
                         .on_hover_text("Discard previously captured packets");
                     if resp.clicked() {
-                        self.packets.clear()
+                        self.packets.borrow_mut().clear();
                     }
 
                     let button = side_button("↻");
@@ -132,17 +97,11 @@ impl FrontEnd {
 
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
-                // TEMPORARY
-                let _ = ui.button("♡ example button");
+                let _ = ui.button("📦 Packets");
             });
         });
 
-        // TEMPORARY
-        egui::CentralPanel::default().show(ctx, |ui| {
-            for (_id, packet) in self.packets.iter() {
-                ui.label(format!("{:?}", packet));
-            }
-        });
+        self.packets_table.ui(ctx);
     }
 
     fn receive_packets(&mut self) {
@@ -162,7 +121,7 @@ impl FrontEnd {
                 continue;
             };
 
-            self.packets.insert(packet.id, packet);
+            self.packets.borrow_mut().insert(packet.id, packet);
         }
     }
 
