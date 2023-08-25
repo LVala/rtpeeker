@@ -1,6 +1,7 @@
 use super::{RtcpPacket, RtpPacket};
 use bincode;
 use serde::{Deserialize, Serialize};
+use std::fmt;
 use std::net::SocketAddr;
 use std::time::Duration;
 
@@ -14,8 +15,8 @@ use etherparse::{
 
 #[derive(Debug)]
 pub enum PacketType {
-    RtpOverUdp,
-    RtcpOverUdp,
+    Rtp,
+    Rtcp,
 }
 
 #[derive(Serialize, Deserialize, Debug, Copy, Clone)]
@@ -24,11 +25,34 @@ pub enum TransportProtocol {
     Udp,
 }
 
+impl fmt::Display for TransportProtocol {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let res = match self {
+            Self::Udp => "UDP",
+            Self::Tcp => "TCP",
+        };
+
+        write!(f, "{}", res)
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum SessionPacket {
     Unknown,
     Rtp(RtpPacket),
     Rtcp(Vec<RtcpPacket>),
+}
+
+impl fmt::Display for SessionPacket {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let res = match self {
+            Self::Unknown => "Unknown",
+            Self::Rtp(_) => "RTP",
+            Self::Rtcp(_) => "RTCP",
+        };
+
+        write!(f, "{}", res)
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -95,7 +119,7 @@ impl Packet {
     }
 
     pub fn parse_as(&mut self, packet_type: PacketType) {
-        if let PacketType::RtpOverUdp = packet_type {
+        if let PacketType::Rtp = packet_type {
             let Some(rtp) = RtpPacket::build(self) else {
                 return;
             };

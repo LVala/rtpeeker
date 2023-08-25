@@ -4,12 +4,12 @@ use log::{error, warn};
 use packets_table::PacketsTable;
 use rtpeeker_common::{Packet, Request};
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::rc::Rc;
 
 mod packets_table;
 
-type Packets = Rc<RefCell<HashMap<usize, Packet>>>;
+type Packets = Rc<RefCell<BTreeMap<usize, Packet>>>;
 
 pub struct Gui {
     ws_sender: WsSender,
