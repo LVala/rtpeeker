@@ -6,7 +6,7 @@ use std::sync::{
 };
 
 use futures_util::{stream::SplitStream, SinkExt, StreamExt, TryFutureExt};
-use log::{error, info};
+use log::{error, info, warn};
 use tokio::sync::{mpsc, mpsc::UnboundedSender, RwLock};
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use warp::ws::{Message, WebSocket};
@@ -80,7 +80,7 @@ async fn client_connected(ws: WebSocket, packets: Packets, clients: Clients) {
     let clients_tx = tx.clone();
     clients.write().await.insert(client_id, clients_tx);
 
-    handle_messages(ws_rx, tx, &packets, client_id).await;
+    handle_messages(ws_rx, tx, &packets, &clients, client_id).await;
 
     info!("Client disconnected, client_id: {}", client_id);
     clients.write().await.remove(&client_id);
@@ -130,27 +130,61 @@ async fn send_all_packets(
     );
 }
 
+async fn reparse_packet(
+    packets: &Packets,
+    clients: &Clients,
+    client_id: usize,
+    id: usize,
+    packet_type: PacketType,
+) {
+    let mut packets = packets.write().await;
+    let Some(packet) = packets.get_mut(id) else {
+        warn!("Received reparse request for non-existent packet {}, client_id: {}", id, client_id);
+        return;
+    };
+    packet.parse_as(packet_type);
+
+    let Ok(encoded) = packet.encode() else {
+        error!("Failed to encode packet, client_id: {}", client_id);
+        return;
+    };
+    let msg = Message::binary(encoded);
+    for (_, tx) in clients.read().await.iter() {
+        tx.send(msg.clone()).unwrap_or_else(|e| {
+            error!("Sniffer: error while sending packet: {}", e);
+        })
+    }
+}
+
 async fn handle_messages(
     mut ws_rx: SplitStream<WebSocket>,
     mut tx: UnboundedSender<Message>,
     packets: &Packets,
+    clients: &Clients,
     client_id: usize,
 ) {
     while let Some(result) = ws_rx.next().await {
         match result {
             Ok(msg) => {
                 info!("Received message: {:?}, client_id: {}", msg, client_id);
-                if msg.is_binary() {
-                    let msg = msg.into_bytes();
-                    let Ok(req) = Request::decode(&msg) else {
-                        error!("Failed to decode request message");
-                        continue;
-                    };
-
-                    match req {
-                        Request::FetchAll => send_all_packets(packets, &mut tx, client_id).await,
-                    };
+                if !msg.is_binary() {
+                    continue;
                 }
+
+                let msg = msg.into_bytes();
+                let Ok(req) = Request::decode(&msg) else {
+                    error!("Failed to decode request message");
+                    continue;
+                };
+
+                match req {
+                    Request::FetchAll => {
+                        send_all_packets(packets, &mut tx, client_id).await;
+                    }
+                    Request::Reparse(id, packet_type) => {
+                        reparse_packet(packets, clients, client_id, id, packet_type).await;
+                    }
+                };
             }
             Err(e) => error!("WebSocket error: {}, client_id: {}", e, client_id),
         }

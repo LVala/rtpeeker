@@ -24,7 +24,7 @@ pub struct Gui {
 impl Gui {
     pub fn new(ws_sender: WsSender, ws_receiver: WsReceiver) -> Self {
         let packets = Packets::default();
-        let packets_table = PacketsTable::new(packets.clone());
+        let packets_table = PacketsTable::new(packets.clone(), ws_sender.clone());
 
         Self {
             ws_sender,
@@ -40,6 +40,15 @@ impl Gui {
             self.receive_packets()
         }
 
+        self.build_side_panel(ctx);
+        self.build_top_bar(ctx);
+        self.build_bottom_bar(ctx);
+
+        // temporary
+        self.packets_table.ui(ctx);
+    }
+
+    fn build_side_panel(&mut self, ctx: &egui::Context) {
         let mut style = (*ctx.style()).clone();
         style.spacing.item_spacing = (0.0, 8.0).into();
         for (_text_style, font_id) in style.text_styles.iter_mut() {
@@ -94,14 +103,36 @@ impl Gui {
                     egui::widgets::global_dark_light_mode_switch(ui);
                 });
             });
+    }
 
+    fn build_top_bar(&self, ctx: &egui::Context) {
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
                 let _ = ui.button("📦 Packets");
             });
         });
+    }
 
-        self.packets_table.ui(ctx);
+    fn build_bottom_bar(&self, ctx: &egui::Context) {
+        egui::TopBottomPanel::bottom("bottom_panel").show(ctx, |ui| {
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                ui.add_space(8.0);
+                let packets = self.packets.borrow();
+                let count = match packets.last_key_value() {
+                    Some((id, _)) => id + 1,
+                    None => 0,
+                };
+                let count_label = format!("Packets: {}", count);
+
+                let captured_count = packets.len();
+                let captured_label = format!("Captured: {}", captured_count);
+
+                let filtered_count = 0; // TODO
+                let filtered_label = format!("Filtered: {}", filtered_count);
+                let label = format!("{} • {} • {}", count_label, captured_label, filtered_label);
+                ui.label(label);
+            });
+        });
     }
 
     fn receive_packets(&mut self) {

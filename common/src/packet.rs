@@ -13,10 +13,29 @@ use etherparse::{
     UdpHeader,
 };
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Copy, Clone)]
 pub enum PacketType {
+    Unknown,
     Rtp,
     Rtcp,
+}
+
+impl PacketType {
+    pub fn all() -> Vec<Self> {
+        vec![Self::Unknown, Self::Rtp, Self::Rtcp]
+    }
+}
+
+impl fmt::Display for PacketType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let res = match self {
+            Self::Unknown => "Unknown",
+            Self::Rtp => "RTP",
+            Self::Rtcp => "RTCP",
+        };
+
+        write!(f, "{}", res)
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Copy, Clone)]
@@ -43,18 +62,6 @@ pub enum SessionPacket {
     Rtcp(Vec<RtcpPacket>),
 }
 
-impl fmt::Display for SessionPacket {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let res = match self {
-            Self::Unknown => "Unknown",
-            Self::Rtp(_) => "RTP",
-            Self::Rtcp(_) => "RTCP",
-        };
-
-        write!(f, "{}", res)
-    }
-}
-
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Packet {
     pub payload: Option<Vec<u8>>,
@@ -64,6 +71,7 @@ pub struct Packet {
     pub source_addr: SocketAddr,
     pub destination_addr: SocketAddr,
     pub transport_protocol: TransportProtocol,
+    pub session_protocol: PacketType,
     pub contents: SessionPacket,
 }
 
@@ -99,6 +107,7 @@ impl Packet {
             source_addr,
             destination_addr,
             transport_protocol,
+            session_protocol: PacketType::Unknown,
             contents: SessionPacket::Unknown,
         })
     }
@@ -113,16 +122,19 @@ impl Packet {
             source_addr: self.source_addr,
             destination_addr: self.destination_addr,
             transport_protocol: self.transport_protocol,
+            session_protocol: self.session_protocol,
             contents: self.contents.clone(),
         };
         bincode::serialize(&wo_payload)
     }
 
     pub fn parse_as(&mut self, packet_type: PacketType) {
+        // TODO
         if let PacketType::Rtp = packet_type {
             let Some(rtp) = RtpPacket::build(self) else {
                 return;
             };
+            self.session_protocol = PacketType::Rtp;
             self.contents = SessionPacket::Rtp(rtp);
         }
     }
