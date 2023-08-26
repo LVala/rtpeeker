@@ -3,8 +3,8 @@ use crate::sniffer::Sniffer;
 use clap::Args;
 use std::net::SocketAddr;
 
-static DEFAULT_PORT: &str = "3550";
-static DEFAULT_IP: &str = "0.0.0.0";
+const DEFAULT_PORT: &str = "3550";
+const DEFAULT_IP: &str = "0.0.0.0";
 
 #[derive(Debug, Args)]
 pub struct Run {

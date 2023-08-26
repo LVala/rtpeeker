@@ -1,6 +1,6 @@
 use rtpeeker_client::gui;
 
-static CANVAS_ID: &str = "the_canvas_id";
+const CANVAS_ID: &str = "the_canvas_id";
 
 fn main() {
     // Redirect `log` message to `console.log` and friends:

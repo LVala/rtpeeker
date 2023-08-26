@@ -17,8 +17,8 @@ use rtpeeker_common::{Packet, Request};
 
 use crate::sniffer::Sniffer;
 
-static DIST_DIR: &str = "client/dist";
-static WS_PATH: &str = "ws";
+const DIST_DIR: &str = "client/dist";
+const WS_PATH: &str = "ws";
 static NEXT_CLIENT_ID: AtomicUsize = AtomicUsize::new(1);
 
 type Clients = Arc<RwLock<HashMap<usize, mpsc::UnboundedSender<Message>>>>;
