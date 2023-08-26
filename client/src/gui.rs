@@ -5,11 +5,37 @@ use packets_table::PacketsTable;
 use rtpeeker_common::{Packet, Request};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
+use std::fmt;
 use std::rc::Rc;
 
 mod packets_table;
 
+const ACCENT_COLOR: egui::Color32 = egui::Color32::from_rgb(51, 85, 85);
+
 type Packets = Rc<RefCell<BTreeMap<usize, Packet>>>;
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Tab {
+    Packets,
+    RtpPackets,
+}
+
+impl Tab {
+    fn all() -> Vec<Self> {
+        vec![Self::Packets, Self::RtpPackets]
+    }
+}
+
+impl fmt::Display for Tab {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let ret = match self {
+            Self::Packets => "📦 Packets",
+            Self::RtpPackets => "🔈RTP Packets",
+        };
+
+        write!(f, "{}", ret)
+    }
+}
 
 pub struct Gui {
     ws_sender: WsSender,
@@ -18,6 +44,9 @@ pub struct Gui {
     // some kind of sparse vector would be the best
     // but this will do
     packets: Packets,
+    tab: Tab,
+    // would rather keep this in `Tab` enum
+    // but it proved to be inconvinient
     packets_table: PacketsTable,
 }
 
@@ -31,6 +60,7 @@ impl Gui {
             ws_receiver,
             is_capturing: true,
             packets,
+            tab: Tab::Packets,
             packets_table,
         }
     }
@@ -44,8 +74,10 @@ impl Gui {
         self.build_top_bar(ctx);
         self.build_bottom_bar(ctx);
 
-        // temporary
-        self.packets_table.ui(ctx);
+        match self.tab {
+            Tab::Packets => self.packets_table.ui(ctx),
+            Tab::RtpPackets => {}
+        };
     }
 
     fn build_side_panel(&mut self, ctx: &egui::Context) {
@@ -105,10 +137,18 @@ impl Gui {
             });
     }
 
-    fn build_top_bar(&self, ctx: &egui::Context) {
+    fn build_top_bar(&mut self, ctx: &egui::Context) {
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
-                let _ = ui.button("📦 Packets");
+                Tab::all().iter().for_each(|tab| {
+                    let mut button = egui::Button::new(tab.to_string());
+                    if *tab == self.tab {
+                        button = button.fill(ACCENT_COLOR);
+                    }
+                    if ui.add(button).clicked() {
+                        self.tab = *tab;
+                    }
+                });
             });
         });
     }
