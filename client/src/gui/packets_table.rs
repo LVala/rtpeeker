@@ -44,7 +44,7 @@ impl PacketsTable {
     }
 
     fn build_table(&mut self, ui: &mut egui::Ui) {
-        let header_labels = vec![
+        let header_labels = [
             ("No.", "Packet number (including skipped packets)"),
             ("Time", "Packet arrival timestamp"),
             ("Source", "Source IP address and port"),

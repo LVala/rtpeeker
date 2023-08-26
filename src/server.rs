@@ -139,7 +139,10 @@ async fn reparse_packet(
 ) {
     let mut packets = packets.write().await;
     let Some(packet) = packets.get_mut(id) else {
-        warn!("Received reparse request for non-existent packet {}, client_id: {}", id, client_id);
+        warn!(
+            "Received reparse request for non-existent packet {}, client_id: {}",
+            id, client_id
+        );
         return;
     };
     packet.parse_as(packet_type);

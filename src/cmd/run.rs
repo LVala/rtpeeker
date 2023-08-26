@@ -28,9 +28,7 @@ impl Run {
         let address = format!("{ip}:{port}");
 
         let Ok(address) = address.parse() else {
-            println!(
-                "Error: IP address or port are invalid"
-            );
+            println!("Error: IP address or port are invalid");
             return;
         };
 

@@ -91,7 +91,8 @@ impl Packet {
             ip: Some(ip),
             transport: Some(transport),
             ..
-        } = packet else {
+        } = packet
+        else {
             return None;
         };
 
