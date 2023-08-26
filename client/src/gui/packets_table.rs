@@ -80,12 +80,14 @@ impl PacketsTable {
         let packets = self.packets.borrow();
 
         body.rows(25.0, packets.len(), |id, mut row| {
+            let first_ts = packets.get(&0).unwrap().timestamp;
             let packet = packets.get(&id).unwrap();
             row.col(|ui| {
                 ui.label(id.to_string());
             });
+            let timestamp = packet.timestamp - first_ts;
             row.col(|ui| {
-                ui.label(packet.timestamp.as_secs_f64().to_string());
+                ui.label(timestamp.as_secs_f64().to_string());
             });
             row.col(|ui| {
                 ui.label(packet.source_addr.to_string());
