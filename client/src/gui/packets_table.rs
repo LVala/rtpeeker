@@ -1,4 +1,5 @@
 use super::Packets;
+use egui::widgets::TextEdit;
 use egui_extras::{Column, TableBody, TableBuilder};
 use ewebsock::{WsMessage, WsSender};
 use rtpeeker_common::packet::{Packet, PacketType};
@@ -7,16 +8,38 @@ use rtpeeker_common::Request;
 pub struct PacketsTable {
     packets: Packets,
     ws_sender: WsSender,
+    filter_buffer: String,
 }
 
 impl PacketsTable {
     pub fn new(packets: Packets, ws_sender: WsSender) -> Self {
-        Self { packets, ws_sender }
+        Self {
+            packets,
+            ws_sender,
+            filter_buffer: String::new(),
+        }
     }
 
     pub fn ui(&mut self, ctx: &egui::Context) {
+        egui::TopBottomPanel::top("filter_bar").show(ctx, |ui| {
+            self.build_filter(ui);
+        });
         egui::CentralPanel::default().show(ctx, |ui| {
             self.build_table(ui);
+        });
+    }
+
+    fn build_filter(&mut self, ui: &mut egui::Ui) {
+        let text_edit = TextEdit::singleline(&mut self.filter_buffer)
+            .font(egui::style::TextStyle::Monospace)
+            .desired_width(f32::INFINITY)
+            .hint_text("Apply a filter ...");
+
+        ui.horizontal(|ui| {
+            // TODO: implement the actuall filtering
+            ui.button("↻").on_hover_text("Reset the filter");
+            ui.button("⏵").on_hover_text("Apply the filter");
+            ui.add(text_edit);
         });
     }
 
@@ -34,11 +57,11 @@ impl PacketsTable {
             .striped(true)
             .resizable(true)
             .stick_to_bottom(true)
-            .column(Column::initial(40.0).at_least(40.0))
-            .column(Column::initial(130.0).at_least(130.0))
-            .columns(Column::initial(100.0).at_least(100.0), 2)
-            .columns(Column::initial(80.0).at_least(80.0), 2)
-            .column(Column::initial(100.0).at_least(100.0))
+            .column(Column::remainder().at_least(40.0))
+            .column(Column::remainder().at_least(130.0))
+            .columns(Column::remainder().at_least(100.0), 2)
+            .columns(Column::remainder().at_least(80.0), 2)
+            .column(Column::remainder().at_least(100.0))
             .header(30.0, |mut header| {
                 header_labels.iter().for_each(|(label, desc)| {
                     header.col(|ui| {
@@ -88,7 +111,7 @@ impl PacketsTable {
         });
 
         // cannot take mutable reference to self
-        // unless `packets` is dropped, hence `request` vector
+        // unless `packets` is dropped, hence the `request` vector
         std::mem::drop(packets);
         requests
             .iter()
