@@ -41,12 +41,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
+        # all tests are run on host target
         dir: [., ./client, ./common]
-        include:
-          # all tests are run on host target
-          - flag: ''
-          - dir: ./client
-            flag: --lib
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable

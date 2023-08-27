@@ -10,8 +10,6 @@ use std::rc::Rc;
 
 mod packets_table;
 
-const ACCENT_COLOR: egui::Color32 = egui::Color32::from_rgb(51, 85, 85);
-
 type Packets = Rc<RefCell<BTreeMap<usize, Packet>>>;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -141,11 +139,10 @@ impl Gui {
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
                 Tab::all().iter().for_each(|tab| {
-                    let mut button = egui::Button::new(tab.to_string());
-                    if *tab == self.tab {
-                        button = button.fill(ACCENT_COLOR);
-                    }
-                    if ui.add(button).clicked() {
+                    if ui
+                        .selectable_label(*tab == self.tab, tab.to_string())
+                        .clicked()
+                    {
                         self.tab = *tab;
                     }
                 });
