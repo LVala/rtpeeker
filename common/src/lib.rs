@@ -11,7 +11,7 @@ pub mod rtp;
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub enum Request {
     FetchAll,
-    Reparse(usize, packet::PacketType),
+    Reparse(usize, packet::SessionProtocol),
 }
 
 impl Request {

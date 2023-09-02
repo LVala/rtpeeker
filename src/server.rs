@@ -12,7 +12,7 @@ use tokio_stream::wrappers::UnboundedReceiverStream;
 use warp::ws::{Message, WebSocket};
 use warp::Filter;
 
-use rtpeeker_common::packet::PacketType;
+use rtpeeker_common::packet::SessionProtocol;
 use rtpeeker_common::{Packet, Request};
 
 use crate::sniffer::Sniffer;
@@ -90,7 +90,7 @@ async fn sniff<T: pcap::Activated>(mut sniffer: Sniffer<T>, packets: Packets, cl
     while let Some(result) = sniffer.next_packet() {
         match result {
             Ok(mut pack) => {
-                pack.parse_as(PacketType::Rtp);
+                pack.parse_as(SessionProtocol::Rtp);
                 let Ok(encoded) = pack.encode() else {
                     error!("Sniffer: failed to encode packet");
                     continue;
@@ -135,7 +135,7 @@ async fn reparse_packet(
     clients: &Clients,
     client_id: usize,
     id: usize,
-    packet_type: PacketType,
+    packet_type: SessionProtocol,
 ) {
     let mut packets = packets.write().await;
     let Some(packet) = packets.get_mut(id) else {

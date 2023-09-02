@@ -2,7 +2,7 @@ use super::Packets;
 use egui::widgets::TextEdit;
 use egui_extras::{Column, TableBody, TableBuilder};
 use ewebsock::{WsMessage, WsSender};
-use rtpeeker_common::packet::{Packet, PacketType};
+use rtpeeker_common::packet::{Packet, SessionProtocol};
 use rtpeeker_common::Request;
 
 pub struct PacketsTable {
@@ -123,7 +123,7 @@ impl PacketsTable {
     fn build_parse_menu(&self, ui: &mut egui::Ui, packet: &Packet) -> Option<Request> {
         let mut request = None;
         ui.label(format!("Parse {} as:", &packet.id));
-        PacketType::all().iter().for_each(|packet_type| {
+        SessionProtocol::all().iter().for_each(|packet_type| {
             let is_type = packet.session_protocol == *packet_type;
             if ui.radio(is_type, packet_type.to_string()).clicked() {
                 request = Some(Request::Reparse(packet.id, *packet_type));

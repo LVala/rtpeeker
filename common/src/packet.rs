@@ -14,19 +14,19 @@ use etherparse::{
 };
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Copy, Clone)]
-pub enum PacketType {
+pub enum SessionProtocol {
     Unknown,
     Rtp,
     Rtcp,
 }
 
-impl PacketType {
+impl SessionProtocol {
     pub fn all() -> Vec<Self> {
         vec![Self::Unknown, Self::Rtp, Self::Rtcp]
     }
 }
 
-impl fmt::Display for PacketType {
+impl fmt::Display for SessionProtocol {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let res = match self {
             Self::Unknown => "Unknown",
@@ -71,7 +71,7 @@ pub struct Packet {
     pub source_addr: SocketAddr,
     pub destination_addr: SocketAddr,
     pub transport_protocol: TransportProtocol,
-    pub session_protocol: PacketType,
+    pub session_protocol: SessionProtocol,
     pub contents: SessionPacket,
 }
 
@@ -108,7 +108,7 @@ impl Packet {
             source_addr,
             destination_addr,
             transport_protocol,
-            session_protocol: PacketType::Unknown,
+            session_protocol: SessionProtocol::Unknown,
             contents: SessionPacket::Unknown,
         })
     }
@@ -129,13 +129,13 @@ impl Packet {
         bincode::serialize(&wo_payload)
     }
 
-    pub fn parse_as(&mut self, packet_type: PacketType) {
+    pub fn parse_as(&mut self, packet_type: SessionProtocol) {
         // TODO
-        if let PacketType::Rtp = packet_type {
+        if let SessionProtocol::Rtp = packet_type {
             let Some(rtp) = RtpPacket::build(self) else {
                 return;
             };
-            self.session_protocol = PacketType::Rtp;
+            self.session_protocol = SessionProtocol::Rtp;
             self.contents = SessionPacket::Rtp(rtp);
         }
     }
