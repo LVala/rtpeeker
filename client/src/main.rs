@@ -1,7 +1,9 @@
-use rtpeeker_client::App;
+#[cfg(target_arch = "wasm32")]
+mod app;
 
-static CANVAS_ID: &str = "the_canvas_id";
+const CANVAS_ID: &str = "the_canvas_id";
 
+#[cfg(target_arch = "wasm32")]
 fn main() {
     // Redirect `log` message to `console.log` and friends:
     eframe::WebLogger::init(log::LevelFilter::Debug).ok();
@@ -13,9 +15,15 @@ fn main() {
             .start(
                 CANVAS_ID,
                 web_options,
-                Box::new(|_cc| Box::<App>::default()),
+                Box::new(|_cc| Box::<app::App>::default()),
             )
             .await
-            .expect("failed to start eframe");
+            .expect("Error: failed to start eframe");
     });
+}
+
+// trick to be able to run tests in CI
+#[cfg(not(target_arch = "wasm32"))]
+fn main() {
+    panic!("Only wasm32 target supported");
 }

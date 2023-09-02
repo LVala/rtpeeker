@@ -8,9 +8,10 @@ pub mod packet;
 pub mod rtcp;
 pub mod rtp;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub enum Request {
     FetchAll,
+    Reparse(usize, packet::SessionProtocol),
 }
 
 impl Request {

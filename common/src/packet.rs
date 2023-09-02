@@ -1,6 +1,7 @@
 use super::{RtcpPacket, RtpPacket};
 use bincode;
 use serde::{Deserialize, Serialize};
+use std::fmt;
 use std::net::SocketAddr;
 use std::time::Duration;
 
@@ -12,16 +13,46 @@ use etherparse::{
     UdpHeader,
 };
 
-#[derive(Debug)]
-pub enum PacketType {
-    RtpOverUdp,
-    RtcpOverUdp,
+#[derive(Serialize, Deserialize, PartialEq, Debug, Copy, Clone)]
+pub enum SessionProtocol {
+    Unknown,
+    Rtp,
+    Rtcp,
+}
+
+impl SessionProtocol {
+    pub fn all() -> Vec<Self> {
+        vec![Self::Unknown, Self::Rtp, Self::Rtcp]
+    }
+}
+
+impl fmt::Display for SessionProtocol {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let res = match self {
+            Self::Unknown => "Unknown",
+            Self::Rtp => "RTP",
+            Self::Rtcp => "RTCP",
+        };
+
+        write!(f, "{}", res)
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Copy, Clone)]
 pub enum TransportProtocol {
     Tcp,
     Udp,
+}
+
+impl fmt::Display for TransportProtocol {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let res = match self {
+            Self::Udp => "UDP",
+            Self::Tcp => "TCP",
+        };
+
+        write!(f, "{}", res)
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -40,6 +71,7 @@ pub struct Packet {
     pub source_addr: SocketAddr,
     pub destination_addr: SocketAddr,
     pub transport_protocol: TransportProtocol,
+    pub session_protocol: SessionProtocol,
     pub contents: SessionPacket,
 }
 
@@ -59,7 +91,8 @@ impl Packet {
             ip: Some(ip),
             transport: Some(transport),
             ..
-        } = packet else {
+        } = packet
+        else {
             return None;
         };
 
@@ -75,6 +108,7 @@ impl Packet {
             source_addr,
             destination_addr,
             transport_protocol,
+            session_protocol: SessionProtocol::Unknown,
             contents: SessionPacket::Unknown,
         })
     }
@@ -89,16 +123,19 @@ impl Packet {
             source_addr: self.source_addr,
             destination_addr: self.destination_addr,
             transport_protocol: self.transport_protocol,
+            session_protocol: self.session_protocol,
             contents: self.contents.clone(),
         };
         bincode::serialize(&wo_payload)
     }
 
-    pub fn parse_as(&mut self, packet_type: PacketType) {
-        if let PacketType::RtpOverUdp = packet_type {
+    pub fn parse_as(&mut self, packet_type: SessionProtocol) {
+        // TODO
+        if let SessionProtocol::Rtp = packet_type {
             let Some(rtp) = RtpPacket::build(self) else {
                 return;
             };
+            self.session_protocol = SessionProtocol::Rtp;
             self.contents = SessionPacket::Rtp(rtp);
         }
     }

@@ -3,8 +3,8 @@ use crate::sniffer::Sniffer;
 use clap::Args;
 use std::net::SocketAddr;
 
-static DEFAULT_PORT: &str = "3550";
-static DEFAULT_IP: &str = "0.0.0.0";
+const DEFAULT_PORT: &str = "3550";
+const DEFAULT_IP: &str = "0.0.0.0";
 
 #[derive(Debug, Args)]
 pub struct Run {
@@ -28,9 +28,7 @@ impl Run {
         let address = format!("{ip}:{port}");
 
         let Ok(address) = address.parse() else {
-            println!(
-                "Error: IP address or port are invalid"
-            );
+            println!("Error: IP address or port are invalid");
             return;
         };
 

@@ -41,14 +41,10 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
+        # all tests are run on host target
         dir: [., ./client, ./common]
-        include:
-          # all tests are run on host target
-          - flag: ''
-          - dir: ./client
-            flag: --lib
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
       - run: sudo apt-get install libpcap-dev
-      - run: cargo test ${{ matrix.flag }} --manifest-path ${{ matrix.dir }}/Cargo.toml
+      - run: cargo test --manifest-path ${{ matrix.dir }}/Cargo.toml
