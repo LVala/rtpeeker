@@ -49,7 +49,7 @@ impl RtpPacketsTable {
             ("Time", "Packet arrival timestamp"),
             ("Source", "Source IP address and port"),
             ("Destination", "Destination IP address and port"),
-            ("Version", "RTP version\nVersion 1 defined in RFC 1889\nVersion 2 defined in RFC 3550"),
+            ("Version", "RTP protocol version"),
             ("Padding", "RTP packet contains additional padding"),
             ("Extension", "RTP packet contains additional header extensions"),
             ("Marker", "RTP marker\nFor audio type it might say that it is first packet after silence\nFor video, marker might say that it is last packet of a frame"),
