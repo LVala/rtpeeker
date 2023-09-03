@@ -1,4 +1,4 @@
-use crate::app::gui::rtp_packets_table::RtpPacketsTable;
+use rtp_packets_table::RtpPacketsTable;
 use eframe::egui;
 use ewebsock::{WsEvent, WsMessage, WsReceiver, WsSender};
 use log::{error, warn};
