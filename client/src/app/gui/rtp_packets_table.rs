@@ -3,7 +3,7 @@ use egui_extras::{Column, TableBody, TableBuilder};
 use rtpeeker_common::packet::SessionPacket;
 use rtpeeker_common::packet::SessionProtocol::Rtp;
 
-use crate::app::gui::payload_type::PayloadType;
+use super::payload_type::PayloadType;
 
 use super::Packets;
 
