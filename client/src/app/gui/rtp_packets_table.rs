@@ -1,36 +1,30 @@
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::rc::Rc;
+use std::vec;
 
 use egui::widgets::TextEdit;
+use egui::Layout;
 use egui_extras::{Column, TableBody, TableBuilder};
 use ewebsock::{WsMessage, WsSender};
-use rtpeeker_common::{Request, RtpPacket};
-use rtpeeker_common::packet::{Packet, SessionProtocol};
+use log::error;
 use rtpeeker_common::packet::SessionProtocol::Rtp;
+use rtpeeker_common::packet::{Packet, SessionPacket, SessionProtocol};
+use rtpeeker_common::{Request, RtpPacket};
+
+use crate::app::gui::payload_type::PayloadType;
 
 use super::Packets;
 
-type RtpPackets = Rc<RefCell<BTreeMap<usize, RtpPacket>>>;
-
 pub struct RtpPacketsTable {
-    rtp_packets: RtpPackets,
+    packets: Packets,
     filter_buffer: String,
 }
 
 impl RtpPacketsTable {
     pub fn new(packets: Packets) -> Self {
-        let mut rtp_packets = RtpPackets::default();
-        packets.borrow().iter().for_each(|(&ix, packet)| {
-            if packet.session_protocol == Rtp {
-                let Some(rtp_packet) = RtpPacket::build(packet); {
-                    rtp_packets.insert(ix, rtp_packet);
-                }
-            }
-        });
-
         Self {
-            rtp_packets,
+            packets,
             filter_buffer: String::new(),
         }
     }
@@ -61,12 +55,28 @@ impl RtpPacketsTable {
     fn build_table(&mut self, ui: &mut egui::Ui) {
         let header_labels = [
             ("No.", "Packet number (including skipped packets)"),
+            ("Time", "Packet arrival timestamp"),
+            ("Source", "Source IP address and port"),
+            ("Destination", "Destination IP address and port"),
+            ("Version", "RTP version\nVersion 1 defined in RFC 1889\nVersion 2 defined in RFC 3550"),
+            ("Padding", "RTP packet contains additional padding"),
+            ("Extension", "RTP packet contains additional header extensions"),
+            ("Marker", "RTP marker\nFor audio type it might say that it is first packet after silence\nFor video, marker might say that it is last packet of a frame"),
+            ("Payload Type", "RTP payload type informs the receiver about the codec or encoding"),
+            ("Sequence Number", "RTP sequence number ensures correct order and helps detect packet loss"),
+            ("Timestamp", "RTP timestamp is the sender time of generating packet"),
+            ("SSRC", "RTP SSRC (Synchronization Source Identifier) identifies the source of an RTP stream"),
+            ("CSRC", "RTP CSRC (Contributing Source Identifier)\nSSRC identifiers of the sources that have contributed to a composite RTP packet,\ntypically used for audio mixing in conferences."),
+            ("Payload Length", "RTP payload length (Excluding header and extensions)"),
         ];
         TableBuilder::new(ui)
             .striped(true)
             .resizable(true)
             .stick_to_bottom(true)
             .column(Column::remainder().at_least(40.0))
+            .column(Column::remainder().at_least(80.0))
+            .columns(Column::remainder().at_least(130.0), 2)
+            .columns(Column::remainder().at_least(80.0), 10)
             .header(30.0, |mut header| {
                 header_labels.iter().for_each(|(label, desc)| {
                     header.col(|ui| {
@@ -81,30 +91,84 @@ impl RtpPacketsTable {
     }
 
     fn build_table_body(&mut self, body: TableBody) {
-        let rtp_packets = self.rtp_packets.borrow();
+        let mut rtp_packets_ids = Vec::new();
+        self.packets.borrow().iter().for_each(|(&ix, packet)| {
+            if packet.session_protocol == Rtp {
+                rtp_packets_ids.push(ix);
+            }
+        });
+        let packets = self.packets.borrow();
 
-        body.rows(25.0, rtp_packets.len(), |id, mut row| {
-            // let first_ts = rtp_packets.get(&0).unwrap().timestamp;
-            // let packet = rtp_packets.get(&id).unwrap();
+        body.rows(25.0, rtp_packets_ids.len(), |row_ix, mut row| {
+            let first_rtp_id = rtp_packets_ids.get(0).unwrap();
+            let first_ts = packets.get(first_rtp_id).unwrap().timestamp;
+            let rtp_id = rtp_packets_ids.get(row_ix).unwrap();
+
+            let packet = packets.get(&rtp_id).unwrap();
+            let SessionPacket::Rtp(ref rtp_packet) = packet.contents else {
+                panic!("Error. This should be RTP");
+            };
+
             row.col(|ui| {
-                ui.label(id.to_string());
+                ui.label(row_ix.to_string());
             });
-            // let timestamp = packet.timestamp - first_ts;
-            // row.col(|ui| {
-            //     ui.label(timestamp.as_secs_f64().to_string());
-            // });
-            // row.col(|ui| {
-            //     ui.label(packet.source_addr.to_string());
+            row.col(|ui| {
+                let timestamp = packet.timestamp - first_ts;
+                ui.label(format!("{:.4}", timestamp.as_secs_f64()));
+            });
+            row.col(|ui| {
+                ui.label(packet.source_addr.to_string());
+            });
+            row.col(|ui| {
+                ui.label(packet.destination_addr.to_string());
+            });
+            row.col(|ui| {
+                ui.label(rtp_packet.version.to_string());
+            });
 
-            // resp.context_menu(|ui| {
-            //     if let Some(req) = self.build_parse_menu(ui, packet) {
-            //         requests.push(req);
-            //     }
-            // });
+            row.col(|ui| {
+                ui.label(rtp_packet.padding.to_string());
+            });
+            row.col(|ui| {
+                ui.label(rtp_packet.extension.to_string());
+            });
+
+            row.col(|ui| {
+                ui.label(rtp_packet.marker.to_string());
+            });
+
+            let resp = row.col(|ui| {
+                ui.label(rtp_packet.payload_type.to_string());
+            });
+            resp.1
+                .on_hover_text(PayloadType::new(rtp_packet.payload_type).to_string());
+
+            row.col(|ui| {
+                ui.label(rtp_packet.sequence_number.to_string());
+            });
+
+            row.col(|ui| {
+                ui.label(rtp_packet.timestamp.to_string());
+            });
+
+            row.col(|ui| {
+                ui.label(rtp_packet.ssrc.to_string());
+            });
+
+            row.col(|ui| {
+                if !rtp_packet.csrc.is_empty() {
+                    ui.label(format!("{:?}, ...", rtp_packet.csrc.first().unwrap()))
+                        .on_hover_text(format!("{:?}", rtp_packet.csrc));
+                }
+            });
+
+            row.col(|ui| {
+                ui.label(rtp_packet.payload_length.to_string());
+            });
         });
 
         // cannot take mutable reference to self
         // unless `packets` is dropped, hence the `request` vector
-        std::mem::drop(rtp_packets);
+        std::mem::drop(packets);
     }
 }

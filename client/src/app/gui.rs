@@ -1,15 +1,19 @@
+use crate::app::gui::rtp_packets_table::RtpPacketsTable;
 use eframe::egui;
 use ewebsock::{WsEvent, WsMessage, WsReceiver, WsSender};
 use log::{error, warn};
 use packets_table::PacketsTable;
+use rtpeeker_common::packet::{SessionPacket, SessionProtocol};
 use rtpeeker_common::{Packet, Request};
 use std::cell::RefCell;
+use std::collections::btree_map::Iter;
 use std::collections::BTreeMap;
 use std::fmt;
+use std::iter::Filter;
 use std::rc::Rc;
-use crate::app::gui::rtp_packets_table::RtpPacketsTable;
 
 mod packets_table;
+mod payload_type;
 mod rtp_packets_table;
 
 type Packets = Rc<RefCell<BTreeMap<usize, Packet>>>;
@@ -55,7 +59,6 @@ impl Gui {
     pub fn new(ws_sender: WsSender, ws_receiver: WsReceiver) -> Self {
         let packets = Packets::default();
         let packets_table = PacketsTable::new(packets.clone(), ws_sender.clone());
-
         let rtp_packets_table = RtpPacketsTable::new(packets.clone());
 
         Self {
