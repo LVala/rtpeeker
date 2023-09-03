@@ -1,16 +1,7 @@
-use std::cell::RefCell;
-use std::collections::BTreeMap;
-use std::rc::Rc;
-use std::vec;
-
 use egui::widgets::TextEdit;
-use egui::Layout;
 use egui_extras::{Column, TableBody, TableBuilder};
-use ewebsock::{WsMessage, WsSender};
-use log::error;
+use rtpeeker_common::packet::SessionPacket;
 use rtpeeker_common::packet::SessionProtocol::Rtp;
-use rtpeeker_common::packet::{Packet, SessionPacket, SessionProtocol};
-use rtpeeker_common::{Request, RtpPacket};
 
 use crate::app::gui::payload_type::PayloadType;
 
@@ -166,9 +157,5 @@ impl RtpPacketsTable {
                 ui.label(rtp_packet.payload_length.to_string());
             });
         });
-
-        // cannot take mutable reference to self
-        // unless `packets` is dropped, hence the `request` vector
-        std::mem::drop(packets);
     }
 }

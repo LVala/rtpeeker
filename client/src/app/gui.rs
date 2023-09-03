@@ -3,13 +3,10 @@ use eframe::egui;
 use ewebsock::{WsEvent, WsMessage, WsReceiver, WsSender};
 use log::{error, warn};
 use packets_table::PacketsTable;
-use rtpeeker_common::packet::{SessionPacket, SessionProtocol};
 use rtpeeker_common::{Packet, Request};
 use std::cell::RefCell;
-use std::collections::btree_map::Iter;
 use std::collections::BTreeMap;
 use std::fmt;
-use std::iter::Filter;
 use std::rc::Rc;
 
 mod packets_table;
@@ -36,7 +33,6 @@ impl fmt::Display for Tab {
             Self::Packets => "📦 Packets",
             Self::RtpPackets => "🔈RTP Packets",
         };
-
         write!(f, "{}", ret)
     }
 }
