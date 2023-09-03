@@ -65,10 +65,8 @@ impl PacketsTable {
             .header(30.0, |mut header| {
                 header_labels.iter().for_each(|(label, desc)| {
                     header.col(|ui| {
-                        ui.vertical_centered(|ui| {
-                            ui.heading(label.to_string())
-                                .on_hover_text(desc.to_string());
-                        });
+                        ui.heading(label.to_string())
+                            .on_hover_text(desc.to_string());
                     });
                 });
             })
