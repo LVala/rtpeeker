@@ -207,13 +207,19 @@ impl std::fmt::Display for PayloadType {
         if let Some(clock_rate_in_hz) = self.clock_rate_in_hz {
             write!(
                 fmt,
-                "Payload type:\n  id={},\n  name={},\n  type={}\n  clock rate={}hz\n",
+                "Payload type: {}\n\
+                Name: {}\n\
+                Type: {}\n\
+                Clock rate: {} Hz\n",
                 self.id, self.name, self.media_type, clock_rate_in_hz
             )
         } else {
             write!(
                 fmt,
-                "Payload type:\n  id={},\n  name={},\n  type={}\n  clock rate=undefined\n",
+                "Payload type: {}\n\
+                Name: {}\n\
+                Type: {}\n\
+                Clock rate: undefined\n",
                 self.id, self.name, self.media_type
             )
         }
