@@ -101,7 +101,7 @@ impl RtpPacketsTable {
             };
 
             row.col(|ui| {
-                ui.label(row_ix.to_string());
+                ui.label(packet.id.to_string());
             });
             row.col(|ui| {
                 let timestamp = packet.timestamp - first_ts;
