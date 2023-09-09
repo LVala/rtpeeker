@@ -1,4 +1,7 @@
+use payload_type::PayloadType;
 use serde::{Deserialize, Serialize};
+
+mod payload_type;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RtpPacket {
@@ -6,7 +9,7 @@ pub struct RtpPacket {
     pub padding: bool,
     pub extension: bool,
     pub marker: bool,
-    pub payload_type: u8,
+    pub payload_type: PayloadType,
     pub sequence_number: u16,
     pub timestamp: u32,
     pub ssrc: u32,
@@ -35,7 +38,7 @@ impl RtpPacket {
             padding: header.padding,
             extension: header.extension,
             marker: header.marker,
-            payload_type: header.payload_type,
+            payload_type: PayloadType::new(header.payload_type),
             sequence_number: header.sequence_number,
             timestamp: header.timestamp,
             ssrc: header.ssrc,
