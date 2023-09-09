@@ -131,8 +131,14 @@ impl RtpPacketsTable {
 
             row.col(|ui| {
                 if !rtp_packet.csrc.is_empty() {
+                    let formatted_csrc = rtp_packet.csrc
+                        .iter()
+                        .map(|num| num.to_string())
+                        .collect::<Vec<String>>()
+                        .join("\n");
+
                     ui.label(format!("{:?}, ...", rtp_packet.csrc.first().unwrap()))
-                        .on_hover_text(format!("{:?}", rtp_packet.csrc));
+                        .on_hover_text(formatted_csrc);
                 }
             });
 
@@ -141,4 +147,15 @@ impl RtpPacketsTable {
             });
         });
     }
+}
+fn main() {
+    let numbers = vec![123141, 1231231, 12312321];
+
+    let formatted_numbers: String = numbers
+        .iter()
+        .map(|num| num.to_string())
+        .collect::<Vec<String>>()
+        .join(",\n");
+
+    println!("{}", formatted_numbers);
 }
