@@ -1,8 +1,8 @@
-use rtp_packets_table::RtpPacketsTable;
 use eframe::egui;
 use ewebsock::{WsEvent, WsMessage, WsReceiver, WsSender};
 use log::{error, warn};
 use packets_table::PacketsTable;
+use rtp_packets_table::RtpPacketsTable;
 use rtpeeker_common::{Packet, Request};
 use std::cell::RefCell;
 use std::collections::BTreeMap;

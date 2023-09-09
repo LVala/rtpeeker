@@ -65,7 +65,9 @@ impl RtpPacketsTable {
     }
 
     fn build_table_body(&mut self, body: TableBody) {
-        let rtp_packets: Vec<_> = self.packets.borrow()
+        let rtp_packets: Vec<_> = self
+            .packets
+            .borrow()
             .values()
             .filter(|packet| packet.session_protocol == Rtp)
             .collect();
@@ -125,7 +127,8 @@ impl RtpPacketsTable {
 
             row.col(|ui| {
                 if !rtp_packet.csrc.is_empty() {
-                    let formatted_csrc = rtp_packet.csrc
+                    let formatted_csrc = rtp_packet
+                        .csrc
                         .iter()
                         .map(|num| num.to_string())
                         .collect::<Vec<String>>()
@@ -141,15 +144,4 @@ impl RtpPacketsTable {
             });
         });
     }
-}
-fn main() {
-    let numbers = vec![123141, 1231231, 12312321];
-
-    let formatted_numbers: String = numbers
-        .iter()
-        .map(|num| num.to_string())
-        .collect::<Vec<String>>()
-        .join(",\n");
-
-    println!("{}", formatted_numbers);
 }
