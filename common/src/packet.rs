@@ -62,7 +62,7 @@ pub enum SessionPacket {
     Rtcp(Vec<RtcpPacket>),
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Packet {
     pub payload: Option<Vec<u8>>,
     pub id: usize,
