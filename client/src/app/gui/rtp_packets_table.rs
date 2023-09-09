@@ -103,7 +103,8 @@ impl RtpPacketsTable {
             let (_, resp) = row.col(|ui| {
                 ui.label(rtp_packet.payload_type.to_string());
             });
-            let (name, media_type, clock_rate_in_hz) = get_payload_type_info(rtp_packet.payload_type);
+            let (name, media_type, clock_rate_in_hz) =
+                get_payload_type_info(rtp_packet.payload_type);
 
             resp.on_hover_text(format!(
                 "Payload type: {}\n\
