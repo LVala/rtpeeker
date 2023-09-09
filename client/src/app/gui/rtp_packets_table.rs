@@ -1,4 +1,3 @@
-use egui::widgets::TextEdit;
 use egui_extras::{Column, TableBody, TableBuilder};
 use rtpeeker_common::packet::SessionPacket;
 use rtpeeker_common::packet::SessionProtocol::Rtp;
@@ -9,15 +8,11 @@ use super::Packets;
 
 pub struct RtpPacketsTable {
     packets: Packets,
-    filter_buffer: String,
 }
 
 impl RtpPacketsTable {
     pub fn new(packets: Packets) -> Self {
-        Self {
-            packets,
-            filter_buffer: String::new(),
-        }
+        Self { packets }
     }
 
     pub fn ui(&mut self, ctx: &egui::Context) {
@@ -65,16 +60,15 @@ impl RtpPacketsTable {
     }
 
     fn build_table_body(&mut self, body: TableBody) {
-        let rtp_packets: Vec<_> = self
-            .packets
-            .borrow()
+        let packets = self.packets.borrow();
+        let rtp_packets: Vec<_> = packets
             .values()
             .filter(|packet| packet.session_protocol == Rtp)
             .collect();
 
         let first_ts = rtp_packets.get(0).unwrap().timestamp;
-        body.rows(25.0, rtp_packets_ids.len(), |row_ix, mut row| {
-            let packet = rtp_packets.get(ix).unwrap();
+        body.rows(25.0, rtp_packets.len(), |row_ix, mut row| {
+            let packet = rtp_packets.get(row_ix).unwrap();
 
             let SessionPacket::Rtp(ref rtp_packet) = packet.contents else {
                 unreachable!();
