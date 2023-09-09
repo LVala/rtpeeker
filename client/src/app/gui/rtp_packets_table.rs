@@ -21,25 +21,8 @@ impl RtpPacketsTable {
     }
 
     pub fn ui(&mut self, ctx: &egui::Context) {
-        egui::TopBottomPanel::top("filter_bar").show(ctx, |ui| {
-            self.build_filter(ui);
-        });
         egui::CentralPanel::default().show(ctx, |ui| {
             self.build_table(ui);
-        });
-    }
-
-    fn build_filter(&mut self, ui: &mut egui::Ui) {
-        let text_edit = TextEdit::singleline(&mut self.filter_buffer)
-            .font(egui::style::TextStyle::Monospace)
-            .desired_width(f32::INFINITY)
-            .hint_text("Apply a filter ...");
-
-        ui.horizontal(|ui| {
-            // TODO: implement the actuall filtering
-            ui.button("↻").on_hover_text("Reset the filter");
-            ui.button("⏵").on_hover_text("Apply the filter");
-            ui.add(text_edit);
         });
     }
 
