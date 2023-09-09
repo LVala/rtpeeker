@@ -2,6 +2,7 @@ use eframe::egui;
 use ewebsock::{WsEvent, WsMessage, WsReceiver, WsSender};
 use log::{error, warn};
 use packets_table::PacketsTable;
+use rtp_packets_table::RtpPacketsTable;
 use rtpeeker_common::{Packet, Request};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
@@ -9,6 +10,7 @@ use std::fmt;
 use std::rc::Rc;
 
 mod packets_table;
+mod rtp_packets_table;
 
 type Packets = Rc<RefCell<BTreeMap<usize, Packet>>>;
 
@@ -30,7 +32,6 @@ impl fmt::Display for Tab {
             Self::Packets => "📦 Packets",
             Self::RtpPackets => "🔈RTP Packets",
         };
-
         write!(f, "{}", ret)
     }
 }
@@ -46,12 +47,14 @@ pub struct Gui {
     // would rather keep this in `Tab` enum
     // but it proved to be inconvinient
     packets_table: PacketsTable,
+    rtp_packets_table: RtpPacketsTable,
 }
 
 impl Gui {
     pub fn new(ws_sender: WsSender, ws_receiver: WsReceiver) -> Self {
         let packets = Packets::default();
         let packets_table = PacketsTable::new(packets.clone(), ws_sender.clone());
+        let rtp_packets_table = RtpPacketsTable::new(packets.clone());
 
         Self {
             ws_sender,
@@ -60,6 +63,7 @@ impl Gui {
             packets,
             tab: Tab::Packets,
             packets_table,
+            rtp_packets_table,
         }
     }
 
@@ -74,7 +78,7 @@ impl Gui {
 
         match self.tab {
             Tab::Packets => self.packets_table.ui(ctx),
-            Tab::RtpPackets => {}
+            Tab::RtpPackets => self.rtp_packets_table.ui(ctx),
         };
     }
 
