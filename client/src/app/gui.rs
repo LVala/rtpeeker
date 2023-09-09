@@ -1,3 +1,4 @@
+use crate::app::gui::rtp_streams_table::RtpStreamsTable;
 use eframe::egui;
 use ewebsock::{WsEvent, WsMessage, WsReceiver, WsSender};
 use log::{error, warn};
@@ -9,6 +10,7 @@ use std::fmt;
 use std::rc::Rc;
 
 mod packets_table;
+mod rtp_streams_table;
 
 type Packets = Rc<RefCell<BTreeMap<usize, Packet>>>;
 
@@ -16,11 +18,12 @@ type Packets = Rc<RefCell<BTreeMap<usize, Packet>>>;
 enum Tab {
     Packets,
     RtpPackets,
+    RtpStreams,
 }
 
 impl Tab {
     fn all() -> Vec<Self> {
-        vec![Self::Packets, Self::RtpPackets]
+        vec![Self::Packets, Self::RtpPackets, Self::RtpStreams]
     }
 }
 
@@ -29,6 +32,7 @@ impl fmt::Display for Tab {
         let ret = match self {
             Self::Packets => "📦 Packets",
             Self::RtpPackets => "🔈RTP Packets",
+            Self::RtpStreams => "🔴 RTP streams",
         };
 
         write!(f, "{}", ret)
@@ -46,12 +50,14 @@ pub struct Gui {
     // would rather keep this in `Tab` enum
     // but it proved to be inconvinient
     packets_table: PacketsTable,
+    rtp_streams_table: RtpStreamsTable,
 }
 
 impl Gui {
     pub fn new(ws_sender: WsSender, ws_receiver: WsReceiver) -> Self {
         let packets = Packets::default();
         let packets_table = PacketsTable::new(packets.clone(), ws_sender.clone());
+        let rtp_streams_table = RtpStreamsTable::new(packets.clone());
 
         Self {
             ws_sender,
@@ -60,6 +66,7 @@ impl Gui {
             packets,
             tab: Tab::Packets,
             packets_table,
+            rtp_streams_table,
         }
     }
 
@@ -75,6 +82,7 @@ impl Gui {
         match self.tab {
             Tab::Packets => self.packets_table.ui(ctx),
             Tab::RtpPackets => {}
+            Tab::RtpStreams => self.rtp_streams_table.ui(ctx),
         };
     }
 
