@@ -132,6 +132,9 @@ impl Packet {
     pub fn guess_payload(&mut self) {
         // could use port to determine validity
         // TODO: STUN data, TURN channels, RTCP
+        //
+        // also, some UDP ports are used by other protocols
+        // see Wireshark -> View -> Internals -> Dissector Table -> UDP port
         if self.transport_protocol != TransportProtocol::Udp {
             return;
         }
@@ -153,12 +156,25 @@ impl Packet {
     }
 
     pub fn parse_as(&mut self, packet_type: SessionProtocol) {
-        if let SessionProtocol::Rtp = packet_type {
-            let Some(rtp) = RtpPacket::build(self) else {
-                return;
-            };
-            self.session_protocol = SessionProtocol::Rtp;
-            self.contents = SessionPacket::Rtp(rtp);
+        match packet_type {
+            SessionProtocol::Rtp => {
+                let Some(rtp) = RtpPacket::build(self) else {
+                    return;
+                };
+                self.session_protocol = packet_type;
+                self.contents = SessionPacket::Rtp(rtp);
+            }
+            SessionProtocol::Rtcp => {
+                let Some(rtcp) = RtcpPacket::build(self) else {
+                    return;
+                };
+                self.session_protocol = packet_type;
+                self.contents = SessionPacket::Rtcp(rtcp);
+            }
+            SessionProtocol::Unknown => {
+                self.session_protocol = packet_type;
+                self.contents = SessionPacket::Unknown;
+            }
         }
     }
 }
