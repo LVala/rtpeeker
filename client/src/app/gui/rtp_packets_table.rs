@@ -111,11 +111,10 @@ impl RtpPacketsTable {
                 ui.label(rtp_packet.marker.to_string());
             });
 
-            let resp = row.col(|ui| {
+            let (_, resp) = row.col(|ui| {
                 ui.label(rtp_packet.payload_type.to_string());
             });
-            resp.1
-                .on_hover_text(PayloadType::new(rtp_packet.payload_type).to_string());
+            resp.on_hover_text(PayloadType::new(rtp_packet.payload_type).to_string());
 
             row.col(|ui| {
                 ui.label(rtp_packet.sequence_number.to_string());
