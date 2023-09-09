@@ -5,8 +5,6 @@ use std::fmt;
 use std::net::SocketAddr;
 use std::time::Duration;
 
-const ALLOWED_FIRST_RTCP: [u8; 5] = [200, 201, 203, 204, 206];
-
 #[cfg(not(target_arch = "wasm32"))]
 use etherparse::{
     IpHeader::{self, Version4, Version6},
@@ -61,7 +59,7 @@ impl fmt::Display for TransportProtocol {
 pub enum SessionPacket {
     Unknown,
     Rtp(RtpPacket),
-    Rtcp(RtcpPacket),
+    Rtcp(Vec<RtcpPacket>),
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -131,29 +129,28 @@ impl Packet {
         bincode::serialize(&wo_payload)
     }
 
-    // pub fn guess_payload(&mut self) {
-    //     // could use port to determine validity
-    //     // TODO: STUN data, TURN channels
-    //     if self.transport_protocol != TransportProtocol::Udp {
-    //         return;
-    //     }
-    //
-    //     if let Some(rtp) = RtpPacket::build(self) {
-    //         if is_rtp(&rtp) {
-    //             self.session_protocol = SessionProtocol::Rtp;
-    //             self.contents = SessionPacket::Rtp(rtp);
-    //             return;
-    //         }
-    //     }
-    //
-    //     if let Some(rtcp) = RtcpPacket::build(self) {
-    //         if is_rtcp(&rtcp) {
-    //             self.session_protocol = SessionProtocol::Rtcp;
-    //             self.contents = SessionPacket::Rtcp(rtcp);
-    //             return;
-    //         }
-    //     }
-    // }
+    pub fn guess_payload(&mut self) {
+        // could use port to determine validity
+        // TODO: STUN data, TURN channels, RTCP
+        if self.transport_protocol != TransportProtocol::Udp {
+            return;
+        }
+
+        if let Some(rtp) = RtpPacket::build(self) {
+            if is_rtp(&rtp) {
+                self.session_protocol = SessionProtocol::Rtp;
+                self.contents = SessionPacket::Rtp(rtp);
+                return;
+            }
+        }
+
+        if let Some(rtcp) = RtcpPacket::build(self) {
+            if is_rtcp(&rtcp) {
+                self.session_protocol = SessionProtocol::Rtcp;
+                self.contents = SessionPacket::Rtcp(rtcp);
+            }
+        }
+    }
 
     pub fn parse_as(&mut self, packet_type: SessionProtocol) {
         if let SessionProtocol::Rtp = packet_type {
@@ -166,24 +163,33 @@ impl Packet {
     }
 }
 
-// #[cfg(not(target_arch = "wasm32"))]
-// fn is_rtp(packet: &RtpPacket) -> bool {
-//     if packet.version != 2 {
-//         return false;
-//     }
-//     if let 72..=76 = packet.payload_type {
-//         return false;
-//     }
-//
-//     true
-// }
-//
-//
-// fn is_rtcp(packet: &RtcpPacket) -> bool {
-//     if !ALLOWED_FIRST_RTCP.contains()
-//
-//     true
-// }
+#[cfg(not(target_arch = "wasm32"))]
+fn is_rtp(packet: &RtpPacket) -> bool {
+    if packet.version != 2 {
+        return false;
+    }
+    if let 72..=76 = packet.payload_type {
+        return false;
+    }
+
+    true
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn is_rtcp(packets: &[RtcpPacket]) -> bool {
+    let Some(first) = packets.first() else {
+        return false;
+    };
+
+    if !matches!(
+        first,
+        RtcpPacket::SenderReport(_) | RtcpPacket::ReceiverReport(_)
+    ) {
+        return false;
+    }
+
+    true
+}
 
 #[cfg(not(target_arch = "wasm32"))]
 fn get_transport_protocol(transport: &TransportHeader) -> Option<TransportProtocol> {
