@@ -65,22 +65,17 @@ impl RtpPacketsTable {
     }
 
     fn build_table_body(&mut self, body: TableBody) {
-        let mut rtp_packets_ids = Vec::new();
-        self.packets.borrow().iter().for_each(|(&ix, packet)| {
-            if packet.session_protocol == Rtp {
-                rtp_packets_ids.push(ix);
-            }
-        });
-        let packets = self.packets.borrow();
+        let rtp_packets: Vec<_> = self.packets.borrow()
+            .values()
+            .filter(|packet| packet.session_protocol == Rtp)
+            .collect();
 
+        let first_ts = rtp_packets.get(0).unwrap().timestamp;
         body.rows(25.0, rtp_packets_ids.len(), |row_ix, mut row| {
-            let first_rtp_id = rtp_packets_ids.first().unwrap();
-            let first_ts = packets.get(first_rtp_id).unwrap().timestamp;
-            let rtp_id = rtp_packets_ids.get(row_ix).unwrap();
+            let packet = rtp_packets.get(ix).unwrap();
 
-            let packet = packets.get(rtp_id).unwrap();
             let SessionPacket::Rtp(ref rtp_packet) = packet.contents else {
-                panic!("Error. This should be RTP");
+                unreachable!();
             };
 
             row.col(|ui| {
