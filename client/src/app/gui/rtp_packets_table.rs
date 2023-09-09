@@ -1,9 +1,8 @@
+use super::Packets;
 use egui_extras::{Column, TableBody, TableBuilder};
 use rtpeeker_common::packet::SessionPacket;
 use rtpeeker_common::packet::SessionProtocol::Rtp;
 
-use super::Packets;
-use rtpeeker_common::rtp::get_payload_type_info;
 pub struct RtpPacketsTable {
     packets: Packets,
 }
@@ -100,19 +99,12 @@ impl RtpPacketsTable {
                 ui.label(rtp_packet.marker.to_string());
             });
 
+            let payload_type = &rtp_packet.payload_type;
             let (_, resp) = row.col(|ui| {
-                ui.label(rtp_packet.payload_type.to_string());
+                ui.label(payload_type.id.to_string());
             });
-            let (name, media_type, clock_rate_in_hz) =
-                get_payload_type_info(rtp_packet.payload_type);
 
-            resp.on_hover_text(format!(
-                "Payload type: {}\n\
-                Name: {}\n\
-                Type: {}\n\
-                Clock rate: {} Hz\n",
-                rtp_packet.payload_type, name, media_type, clock_rate_in_hz
-            ));
+            resp.on_hover_text(rtp_packet.payload_type.to_string());
 
             row.col(|ui| {
                 ui.label(rtp_packet.sequence_number.to_string());
