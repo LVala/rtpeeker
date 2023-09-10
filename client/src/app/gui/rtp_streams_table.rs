@@ -1,6 +1,10 @@
 use std::collections::HashSet;
+use std::ops::Div;
 use std::time::Duration;
 
+use eframe::egui::plot::{Line, Plot, PlotPoints};
+use egui::{Color32, Vec2};
+use egui::plot::{CoordinatesFormatter, Corner};
 use egui_extras::{Column, TableBody, TableBuilder};
 use rtpeeker_common::packet::{Packet, SessionPacket};
 use rtpeeker_common::packet::SessionProtocol::Rtp;
@@ -34,6 +38,7 @@ impl RtpStreamsTable {
             ("Duration", "Difference between last timestamp and first timestamp."),
             ("Lost packets", "Difference between last timestamp and first timestamp."),
             ("Jitter", ""),
+            ("Jitter plot", ""),
         ];
         TableBuilder::new(ui)
             .striped(true)
@@ -46,6 +51,7 @@ impl RtpStreamsTable {
             .column(Column::remainder().at_least(40.0))
             .column(Column::remainder().at_least(40.0))
             .column(Column::remainder().at_least(40.0))
+            .column(Column::remainder().at_least(400.0).resizable(false))
             .header(30.0, |mut header| {
                 header_labels.iter().for_each(|(label, desc)| {
                     header.col(|ui| {
@@ -79,7 +85,7 @@ impl RtpStreamsTable {
         ssrcs.sort();
 
 
-        body.rows(25.0, ssrcs.len(), |id, mut row| {
+        body.rows(100.0, ssrcs.len(), |id, mut row| {
             let stream_ssrc = ssrcs.get(id).unwrap();
             let stream_packets: Vec<_> = rtp_packets
                 .iter()
@@ -133,6 +139,7 @@ impl RtpStreamsTable {
                 let lost_percentage = 100.0 - (number_of_packets / expected_number_of_packets) * 100.0;
                 ui.label(format!("{:.2}%", lost_percentage));
             });
+            let mut jitter_history = vec![0.0];
             row.col(|ui| {
                 let mut jitter = 0.0;
 
@@ -159,6 +166,7 @@ impl RtpStreamsTable {
                                 let d = arrival_time_difference.as_secs_f64() - timestamp_difference;
 
                                 jitter = jitter + (d - jitter) / 16.0;
+                                jitter_history.push(jitter);
                             }
                         }
                         last_packet = Some(packet)
@@ -168,6 +176,38 @@ impl RtpStreamsTable {
                 });
 
                 ui.label(jitter.to_string());
+            });
+            row.col(|ui| {
+                ui.vertical_centered_justified(|ui| {
+                    let points: PlotPoints = (0..jitter_history.len())
+                        .map(|i| [i as f64, *jitter_history.get(i).unwrap()])
+                        .collect();
+
+                    let zero_axis: PlotPoints = (0..(jitter_history.len() + (jitter_history.len().div(5))))
+                        .map(|i| {
+                            [i as f64, 0.0]
+                        })
+                        .collect();
+
+                    let line = Line::new(points).name("jitter");
+                    let line_zero_axis = Line::new(zero_axis).color(Color32::GRAY);
+                    Plot::new(id.to_string())
+                        .show_background(false)
+                        .show_axes([false, false])
+                        .label_formatter(|name, value| {
+                            if name.ne("jitter") || value.x.fract() != 0.0{
+                                return format!("");
+                            }
+                            format!("no = {}\njitter = {:.5}", value.x, value.y)
+                        })
+                        .set_margin_fraction(Vec2::new(0.1, 0.1))
+                        .allow_scroll(false)
+                        .show(ui, |plot_ui| {
+                            plot_ui.line(line_zero_axis);
+                            plot_ui.line(line);
+                        });
+                    ui.add_space(7.0);
+                });
             });
         });
     }
