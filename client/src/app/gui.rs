@@ -11,8 +11,8 @@ use std::fmt;
 use std::rc::Rc;
 
 mod packets_table;
-mod rtp_streams_table;
 mod rtp_packets_table;
+mod rtp_streams_table;
 
 type Packets = Rc<RefCell<BTreeMap<usize, Packet>>>;
 
