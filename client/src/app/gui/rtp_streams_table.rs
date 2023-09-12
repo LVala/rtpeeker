@@ -72,8 +72,8 @@ impl RtpStreamsTable {
 
         rtp_packets.iter().for_each(|packet| {
             let SessionPacket::Rtp(ref rtp_packet) = packet.contents else {
-                    unreachable!();
-                };
+                unreachable!();
+            };
             set_of_ssrcs.insert(rtp_packet.ssrc);
         });
 
@@ -155,7 +155,7 @@ impl RtpStreamsTable {
                         .show_axes([false, false])
                         .label_formatter(|name, value| {
                             if name.ne("jitter") || value.x.fract() != 0.0 {
-                                return format!("");
+                                return "".to_string();
                             }
                             format!("no = {}\njitter = {:.5}", value.x, value.y)
                         })
@@ -179,8 +179,7 @@ impl RtpStreamsTable {
         let first_sequence_number = first_rtp.sequence_number as f64;
         let last_sequence_number = last_rtp.sequence_number as f64;
         let expected_number_of_packets = last_sequence_number - first_sequence_number + 1.0;
-        let lost_percentage = 100.0 - (number_of_packets / expected_number_of_packets) * 100.0;
-        lost_percentage
+        100.0 - (number_of_packets / expected_number_of_packets) * 100.0
     }
 
     fn get_jitter(jitter_history: &mut Vec<f64>, stream_packets: Vec<&&Packet>) -> f64 {
