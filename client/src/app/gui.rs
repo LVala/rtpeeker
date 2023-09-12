@@ -1,9 +1,9 @@
-use crate::app::gui::rtp_streams_table::RtpStreamsTable;
 use eframe::egui;
 use ewebsock::{WsEvent, WsMessage, WsReceiver, WsSender};
 use log::{error, warn};
 use packets_table::PacketsTable;
 use rtp_packets_table::RtpPacketsTable;
+use rtp_streams_table::RtpStreamsTable;
 use rtpeeker_common::{Packet, Request};
 use std::cell::RefCell;
 use std::collections::BTreeMap;

@@ -40,13 +40,7 @@ impl RtpStreamsTable {
             .striped(true)
             .resizable(true)
             .stick_to_bottom(true)
-            .column(Column::remainder().at_least(40.0))
-            .column(Column::remainder().at_least(40.0))
-            .column(Column::remainder().at_least(40.0))
-            .column(Column::remainder().at_least(40.0))
-            .column(Column::remainder().at_least(40.0))
-            .column(Column::remainder().at_least(40.0))
-            .column(Column::remainder().at_least(40.0))
+            .columns(Column::remainder().at_least(40.0), 7)
             .column(Column::remainder().at_least(380.0).resizable(false))
             .header(30.0, |mut header| {
                 header_labels.iter().for_each(|(label, desc)| {
