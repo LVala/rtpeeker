@@ -38,7 +38,7 @@ impl fmt::Display for SessionProtocol {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Copy, Clone)]
 pub enum TransportProtocol {
     Tcp,
     Udp,
@@ -129,16 +129,82 @@ impl Packet {
         bincode::serialize(&wo_payload)
     }
 
-    pub fn parse_as(&mut self, packet_type: SessionProtocol) {
-        // TODO
-        if let SessionProtocol::Rtp = packet_type {
-            let Some(rtp) = RtpPacket::build(self) else {
+    pub fn guess_payload(&mut self) {
+        // could use port to determine validity
+        // TODO: STUN data, TURN channels, RTCP
+        //
+        // also, some UDP ports are used by other protocols
+        // see Wireshark -> View -> Internals -> Dissector Table -> UDP port
+        if self.transport_protocol != TransportProtocol::Udp {
+            return;
+        }
+
+        if let Some(rtp) = RtpPacket::build(self) {
+            if is_rtp(&rtp) {
+                self.session_protocol = SessionProtocol::Rtp;
+                self.contents = SessionPacket::Rtp(rtp);
                 return;
-            };
-            self.session_protocol = SessionProtocol::Rtp;
-            self.contents = SessionPacket::Rtp(rtp);
+            }
+        }
+
+        if let Some(rtcp) = RtcpPacket::build(self) {
+            if is_rtcp(&rtcp) {
+                self.session_protocol = SessionProtocol::Rtcp;
+                self.contents = SessionPacket::Rtcp(rtcp);
+            }
         }
     }
+
+    pub fn parse_as(&mut self, packet_type: SessionProtocol) {
+        match packet_type {
+            SessionProtocol::Rtp => {
+                let Some(rtp) = RtpPacket::build(self) else {
+                    return;
+                };
+                self.session_protocol = packet_type;
+                self.contents = SessionPacket::Rtp(rtp);
+            }
+            SessionProtocol::Rtcp => {
+                let Some(rtcp) = RtcpPacket::build(self) else {
+                    return;
+                };
+                self.session_protocol = packet_type;
+                self.contents = SessionPacket::Rtcp(rtcp);
+            }
+            SessionProtocol::Unknown => {
+                self.session_protocol = packet_type;
+                self.contents = SessionPacket::Unknown;
+            }
+        }
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn is_rtp(packet: &RtpPacket) -> bool {
+    if packet.version != 2 {
+        return false;
+    }
+    if let 72..=76 = packet.payload_type.id {
+        return false;
+    }
+
+    true
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn is_rtcp(packets: &[RtcpPacket]) -> bool {
+    let Some(first) = packets.first() else {
+        return false;
+    };
+
+    if !matches!(
+        first,
+        RtcpPacket::SenderReport(_) | RtcpPacket::ReceiverReport(_)
+    ) {
+        return false;
+    }
+
+    true
 }
 
 #[cfg(not(target_arch = "wasm32"))]

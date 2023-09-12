@@ -90,7 +90,7 @@ async fn sniff<T: pcap::Activated>(mut sniffer: Sniffer<T>, packets: Packets, cl
     while let Some(result) = sniffer.next_packet() {
         match result {
             Ok(mut pack) => {
-                pack.parse_as(SessionProtocol::Rtp);
+                pack.guess_payload();
                 let Ok(encoded) = pack.encode() else {
                     error!("Sniffer: failed to encode packet");
                     continue;
