@@ -1,7 +1,7 @@
 use payload_type::PayloadType;
 use serde::{Deserialize, Serialize};
 
-mod payload_type;
+pub mod payload_type;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RtpPacket {

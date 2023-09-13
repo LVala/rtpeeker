@@ -9,10 +9,12 @@ use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::fmt;
 use std::rc::Rc;
+use crate::app::gui::rtp_streams_plot::RtpStreamsPlot;
 
 mod packets_table;
 mod rtp_packets_table;
 mod rtp_streams_table;
+mod rtp_streams_plot;
 
 type Packets = Rc<RefCell<BTreeMap<usize, Packet>>>;
 
@@ -20,12 +22,13 @@ type Packets = Rc<RefCell<BTreeMap<usize, Packet>>>;
 enum Tab {
     Packets,
     RtpPackets,
-    RtpStreams,
+    RtpStreamsTable,
+    RtpStreamsPlot,
 }
 
 impl Tab {
     fn all() -> Vec<Self> {
-        vec![Self::Packets, Self::RtpPackets, Self::RtpStreams]
+        vec![Self::Packets, Self::RtpPackets, Self::RtpStreamsTable, Self::RtpStreamsPlot,]
     }
 }
 
@@ -34,7 +37,8 @@ impl fmt::Display for Tab {
         let ret = match self {
             Self::Packets => "📦 Packets",
             Self::RtpPackets => "🔈RTP Packets",
-            Self::RtpStreams => "🔴 RTP streams",
+            Self::RtpStreamsTable => "🔴 RTP streams table",
+            Tab::RtpStreamsPlot => "TODO  RTP streams plot"
         };
 
         write!(f, "{}", ret)
@@ -54,6 +58,7 @@ pub struct Gui {
     packets_table: PacketsTable,
     rtp_packets_table: RtpPacketsTable,
     rtp_streams_table: RtpStreamsTable,
+    rtp_streams_plot: RtpStreamsPlot,
 }
 
 impl Gui {
@@ -62,6 +67,7 @@ impl Gui {
         let packets_table = PacketsTable::new(packets.clone(), ws_sender.clone());
         let rtp_packets_table = RtpPacketsTable::new(packets.clone());
         let rtp_streams_table = RtpStreamsTable::new(packets.clone());
+        let rtp_streams_plot = RtpStreamsPlot::new(packets.clone());
 
         Self {
             ws_sender,
@@ -72,6 +78,7 @@ impl Gui {
             packets_table,
             rtp_packets_table,
             rtp_streams_table,
+            rtp_streams_plot,
         }
     }
 
@@ -87,7 +94,8 @@ impl Gui {
         match self.tab {
             Tab::Packets => self.packets_table.ui(ctx),
             Tab::RtpPackets => self.rtp_packets_table.ui(ctx),
-            Tab::RtpStreams => self.rtp_streams_table.ui(ctx),
+            Tab::RtpStreamsTable => self.rtp_streams_table.ui(ctx),
+            Tab::RtpStreamsPlot => self.rtp_streams_plot.ui(ctx),
         };
     }
 
