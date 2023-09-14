@@ -139,18 +139,18 @@ impl Packet {
             return;
         }
 
-        if let Some(rtp) = RtpPacket::build(self) {
-            if is_rtp(&rtp) {
-                self.session_protocol = SessionProtocol::Rtp;
-                self.contents = SessionPacket::Rtp(rtp);
-                return;
-            }
-        }
-
         if let Some(rtcp) = RtcpPacket::build(self) {
             if is_rtcp(&rtcp) {
                 self.session_protocol = SessionProtocol::Rtcp;
                 self.contents = SessionPacket::Rtcp(rtcp);
+                return;
+            }
+        }
+
+        if let Some(rtp) = RtpPacket::build(self) {
+            if is_rtp(&rtp) {
+                self.session_protocol = SessionProtocol::Rtp;
+                self.contents = SessionPacket::Rtp(rtp);
             }
         }
     }
@@ -199,7 +199,10 @@ fn is_rtcp(packets: &[RtcpPacket]) -> bool {
 
     if !matches!(
         first,
-        RtcpPacket::SenderReport(_) | RtcpPacket::ReceiverReport(_)
+        RtcpPacket::SenderReport(_)
+            | RtcpPacket::ReceiverReport(_)
+            | RtcpPacket::Goodbye(_)
+            | RtcpPacket::PayloadSpecificFeedback
     ) {
         return false;
     }
