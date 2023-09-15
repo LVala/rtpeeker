@@ -1,4 +1,4 @@
-use super::Packets;
+use crate::packets::RefPackets;
 use egui::widgets::TextEdit;
 use egui_extras::{Column, TableBody, TableBuilder};
 use ewebsock::{WsMessage, WsSender};
@@ -6,13 +6,13 @@ use rtpeeker_common::packet::{Packet, SessionProtocol};
 use rtpeeker_common::Request;
 
 pub struct PacketsTable {
-    packets: Packets,
+    packets: RefPackets,
     ws_sender: WsSender,
     filter_buffer: String,
 }
 
 impl PacketsTable {
-    pub fn new(packets: Packets, ws_sender: WsSender) -> Self {
+    pub fn new(packets: RefPackets, ws_sender: WsSender) -> Self {
         Self {
             packets,
             ws_sender,
@@ -80,8 +80,8 @@ impl PacketsTable {
         let packets = self.packets.borrow();
 
         body.rows(25.0, packets.len(), |id, mut row| {
-            let first_ts = packets.get(&0).unwrap().timestamp;
-            let packet = packets.get(&id).unwrap();
+            let first_ts = packets.get(0).unwrap().timestamp;
+            let packet = packets.get(id).unwrap();
             row.col(|ui| {
                 ui.label(id.to_string());
             });

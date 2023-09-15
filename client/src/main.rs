@@ -1,5 +1,7 @@
 #[cfg(target_arch = "wasm32")]
 mod app;
+mod packets;
+mod streams;
 
 const CANVAS_ID: &str = "the_canvas_id";
 

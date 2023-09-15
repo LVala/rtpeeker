@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 use std::ops::Div;
 
+use crate::packets::RefPackets;
 use eframe::egui::plot::{Line, Plot, PlotPoints};
 use egui::{Color32, Vec2};
 use egui_extras::{Column, TableBody, TableBuilder};
@@ -8,14 +9,12 @@ use rtpeeker_common::packet::SessionProtocol::Rtp;
 use rtpeeker_common::packet::{Packet, SessionPacket};
 use rtpeeker_common::RtpPacket;
 
-use super::Packets;
-
 pub struct RtpStreamsTable {
-    packets: Packets,
+    packets: RefPackets,
 }
 
 impl RtpStreamsTable {
-    pub fn new(packets: Packets) -> Self {
+    pub fn new(packets: RefPackets) -> Self {
         Self { packets }
     }
 

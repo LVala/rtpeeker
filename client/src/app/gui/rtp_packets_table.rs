@@ -1,14 +1,14 @@
-use super::Packets;
+use crate::packets::RefPackets;
 use egui_extras::{Column, TableBody, TableBuilder};
 use rtpeeker_common::packet::SessionPacket;
 use rtpeeker_common::packet::SessionProtocol::Rtp;
 
 pub struct RtpPacketsTable {
-    packets: Packets,
+    packets: RefPackets,
 }
 
 impl RtpPacketsTable {
-    pub fn new(packets: Packets) -> Self {
+    pub fn new(packets: RefPackets) -> Self {
         Self { packets }
     }
 
