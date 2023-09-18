@@ -1,4 +1,4 @@
-use crate::packets::Packets;
+use packets::Packets;
 use rtpeeker_common::packet::SessionPacket;
 use rtpeeker_common::Packet;
 use std::cell::RefCell;
@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use stream::Stream;
 
+mod packets;
 mod stream;
 
 pub type RefStreams = Rc<RefCell<Streams>>;
