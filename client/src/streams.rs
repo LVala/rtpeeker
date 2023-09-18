@@ -56,7 +56,12 @@ fn handle_packet(streams: &mut HashMap<u32, Stream>, packet: &Packet) {
     match packet.contents {
         SessionPacket::Rtp(ref pack) => {
             streams.entry(pack.ssrc).or_insert_with(|| {
-                Stream::new(packet.source_addr, packet.destination_addr, pack.ssrc)
+                Stream::new(
+                    packet.source_addr,
+                    packet.destination_addr,
+                    pack.ssrc,
+                    pack.payload_type.id,
+                )
             });
             streams
                 .get_mut(&pack.ssrc)
