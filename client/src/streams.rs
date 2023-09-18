@@ -14,7 +14,7 @@ pub type RefStreams = Rc<RefCell<Streams>>;
 #[derive(Debug, Default)]
 pub struct Streams {
     pub packets: Packets,
-    streams: HashMap<u32, Stream>,
+    pub streams: HashMap<u32, Stream>,
 }
 
 impl Streams {

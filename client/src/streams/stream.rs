@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 
 #[derive(Debug)]
 pub struct Stream {
-    rtp_packets: Vec<usize>,
+    pub rtp_packets: Vec<usize>,
     // rtcp_packets: Vec<usize>,
     pub source_addr: SocketAddr,
     pub destination_addr: SocketAddr,
