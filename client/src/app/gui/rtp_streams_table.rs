@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 use std::ops::Div;
 
+use crate::streams::RefStreams;
 use eframe::egui::plot::{Line, Plot, PlotPoints};
 use egui::{Color32, Vec2};
 use egui_extras::{Column, TableBody, TableBuilder};
@@ -8,15 +9,13 @@ use rtpeeker_common::packet::SessionProtocol::Rtp;
 use rtpeeker_common::packet::{Packet, SessionPacket};
 use rtpeeker_common::RtpPacket;
 
-use super::Packets;
-
 pub struct RtpStreamsTable {
-    packets: Packets,
+    streams: RefStreams,
 }
 
 impl RtpStreamsTable {
-    pub fn new(packets: Packets) -> Self {
-        Self { packets }
+    pub fn new(streams: RefStreams) -> Self {
+        Self { streams }
     }
 
     pub fn ui(&mut self, ctx: &egui::Context) {
@@ -57,7 +56,7 @@ impl RtpStreamsTable {
 
     fn build_table_body(&mut self, body: TableBody) {
         let mut set_of_ssrcs: HashSet<u32> = HashSet::new();
-        let packets = self.packets.borrow();
+        let packets = &self.streams.borrow().packets;
 
         let rtp_packets: Vec<_> = packets
             .values()
