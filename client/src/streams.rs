@@ -1,4 +1,4 @@
-use crate::packets::RefPackets;
+use crate::packets::Packets;
 use rtpeeker_common::packet::SessionPacket;
 use rtpeeker_common::Packet;
 use std::cell::RefCell;
@@ -10,50 +10,38 @@ mod stream;
 
 pub type RefStreams = Rc<RefCell<Streams>>;
 
-pub fn create_streams(packets: RefPackets) -> RefStreams {
-    Rc::new(RefCell::new(Streams::new(packets)))
-}
-
 #[derive(Debug, Default)]
 pub struct Streams {
-    packets: RefPackets,
+    pub packets: Packets,
     streams: HashMap<u32, Stream>,
 }
 
 impl Streams {
-    pub fn new(packets: RefPackets) -> Self {
-        Self {
-            packets,
-            streams: HashMap::new(),
-        }
-    }
-
     pub fn clear(&mut self) {
-        self.packets.borrow_mut().clear();
+        self.packets.clear();
         self.streams.clear();
     }
 
     pub fn add_packet(&mut self, packet: Packet) {
-        let is_new = self.packets.borrow().is_new(&packet);
+        let is_new = self.packets.is_new(&packet);
 
         if is_new {
             handle_packet(&mut self.streams, &packet);
-            self.packets.borrow_mut().add_packet(packet);
+            self.packets.add_packet(packet);
         } else {
             // if the packet is not new (its id is smaller that the last packet's id)
             // that this must be result of `parse_as` request or refetch (tho packets should be
             // pruned before refetch) in that case, recalculate everything,
             // this can be optimised if it proves to be to slow
-            self.packets.borrow_mut().add_packet(packet);
+            self.packets.add_packet(packet);
             self.recalculate();
         }
     }
 
     fn recalculate(&mut self) {
         let mut new_streams = HashMap::new();
-        let packets = self.packets.borrow();
 
-        packets
+        self.packets
             .values()
             .for_each(|packet| handle_packet(&mut new_streams, packet));
 

@@ -1,9 +1,5 @@
 use rtpeeker_common::packet::Packet;
-use std::cell::RefCell;
 use std::collections::{btree_map::Values, BTreeMap};
-use std::rc::Rc;
-
-pub type RefPackets = Rc<RefCell<Packets>>;
 
 #[derive(Debug, Default)]
 pub struct Packets {

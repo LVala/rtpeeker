@@ -1,15 +1,15 @@
-use crate::packets::RefPackets;
+use crate::streams::RefStreams;
 use egui_extras::{Column, TableBody, TableBuilder};
 use rtpeeker_common::packet::SessionPacket;
 use rtpeeker_common::packet::SessionProtocol::Rtp;
 
 pub struct RtpPacketsTable {
-    packets: RefPackets,
+    streams: RefStreams,
 }
 
 impl RtpPacketsTable {
-    pub fn new(packets: RefPackets) -> Self {
-        Self { packets }
+    pub fn new(streams: RefStreams) -> Self {
+        Self { streams }
     }
 
     pub fn ui(&mut self, ctx: &egui::Context) {
@@ -57,7 +57,7 @@ impl RtpPacketsTable {
     }
 
     fn build_table_body(&mut self, body: TableBody) {
-        let packets = self.packets.borrow();
+        let packets = &self.streams.borrow().packets;
         let rtp_packets: Vec<_> = packets
             .values()
             .filter(|packet| packet.session_protocol == Rtp)

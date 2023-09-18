@@ -1,4 +1,4 @@
-use crate::packets::RefPackets;
+use crate::streams::RefStreams;
 use egui::widgets::TextEdit;
 use egui_extras::{Column, TableBody, TableBuilder};
 use ewebsock::{WsMessage, WsSender};
@@ -6,15 +6,15 @@ use rtpeeker_common::packet::{Packet, SessionProtocol};
 use rtpeeker_common::Request;
 
 pub struct PacketsTable {
-    packets: RefPackets,
+    streams: RefStreams,
     ws_sender: WsSender,
     filter_buffer: String,
 }
 
 impl PacketsTable {
-    pub fn new(packets: RefPackets, ws_sender: WsSender) -> Self {
+    pub fn new(streams: RefStreams, ws_sender: WsSender) -> Self {
         Self {
-            packets,
+            streams,
             ws_sender,
             filter_buffer: String::new(),
         }
@@ -77,7 +77,8 @@ impl PacketsTable {
 
     fn build_table_body(&mut self, body: TableBody) {
         let mut requests = Vec::new();
-        let packets = self.packets.borrow();
+        let streams = self.streams.borrow();
+        let packets = &streams.packets;
 
         body.rows(25.0, packets.len(), |id, mut row| {
             let first_ts = packets.get(0).unwrap().timestamp;
@@ -114,7 +115,7 @@ impl PacketsTable {
 
         // cannot take mutable reference to self
         // unless `packets` is dropped, hence the `request` vector
-        std::mem::drop(packets);
+        std::mem::drop(streams);
         requests
             .iter()
             .for_each(|req| self.send_parse_request(*req));

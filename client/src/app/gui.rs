@@ -1,5 +1,4 @@
-use crate::packets::RefPackets;
-use crate::streams::{create_streams, RefStreams};
+use crate::streams::RefStreams;
 use eframe::egui;
 use ewebsock::{WsEvent, WsMessage, WsReceiver, WsSender};
 use log::{error, warn};
@@ -44,7 +43,6 @@ pub struct Gui {
     is_capturing: bool,
     // some kind of sparse vector would be the best
     // but this will do
-    packets: RefPackets,
     streams: RefStreams,
     tab: Tab,
     // would rather keep this in `Tab` enum
@@ -56,17 +54,15 @@ pub struct Gui {
 
 impl Gui {
     pub fn new(ws_sender: WsSender, ws_receiver: WsReceiver) -> Self {
-        let packets = RefPackets::default();
-        let streams = create_streams(packets.clone());
-        let packets_table = PacketsTable::new(packets.clone(), ws_sender.clone());
-        let rtp_packets_table = RtpPacketsTable::new(packets.clone());
-        let rtp_streams_table = RtpStreamsTable::new(packets.clone());
+        let streams = RefStreams::default();
+        let packets_table = PacketsTable::new(streams.clone(), ws_sender.clone());
+        let rtp_packets_table = RtpPacketsTable::new(streams.clone());
+        let rtp_streams_table = RtpStreamsTable::new(streams.clone());
 
         Self {
             ws_sender,
             ws_receiver,
             is_capturing: true,
-            packets,
             streams,
             tab: Tab::Packets,
             packets_table,
@@ -168,11 +164,11 @@ impl Gui {
         egui::TopBottomPanel::bottom("bottom_panel").show(ctx, |ui| {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.add_space(8.0);
-                let packets = self.packets.borrow();
-                let count = packets.id_count();
+                let streams = self.streams.borrow();
+                let count = streams.packets.id_count();
                 let count_label = format!("Packets: {}", count);
 
-                let captured_count = packets.len();
+                let captured_count = streams.packets.len();
                 let captured_label = format!("Captured: {}", captured_count);
 
                 let filtered_count = 0; // TODO
