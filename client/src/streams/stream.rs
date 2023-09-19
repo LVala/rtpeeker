@@ -13,10 +13,12 @@ pub struct Stream {
     pub jitter: f64,
     pub jitter_history: Vec<f64>,
     pub lost_percentage: f64,
+    pub duration: Duration,
     payload_type: u8,
     previous_timestamp: Option<Duration>,
     previous_rtp_timestamp: Option<f64>,
     first_sequence_number: Option<u16>,
+    first_timestamp: Option<Duration>,
 }
 
 impl Stream {
@@ -35,17 +37,23 @@ impl Stream {
             jitter: 0.0,
             jitter_history: vec![0.0],
             lost_percentage: 0.0,
+            duration: Duration::ZERO,
             payload_type,
             previous_timestamp: None,
             previous_rtp_timestamp: None,
             first_sequence_number: None,
+            first_timestamp: None,
         }
     }
 
     pub fn add_rtp_packet(&mut self, packet: &Packet, _rtp: &RtpPacket) {
         self.rtp_packets.push(packet.id);
+        if self.first_timestamp.is_none() {
+            self.first_timestamp = Some(packet.timestamp)
+        }
         self.calculate_jitter(packet);
         self.calculate_lost_percentage(packet);
+        self.calculate_duration(packet);
     }
 
     fn calculate_lost_percentage(&mut self, packet: &Packet) {
@@ -94,5 +102,12 @@ impl Stream {
 
         self.previous_timestamp = Some(packet.timestamp);
         self.previous_rtp_timestamp = Some(rtp.timestamp as f64);
+    }
+
+    fn calculate_duration(&mut self, packet: &Packet) {
+        self.duration = packet
+            .timestamp
+            .checked_sub(self.first_timestamp.unwrap())
+            .unwrap_or(Duration::ZERO)
     }
 }

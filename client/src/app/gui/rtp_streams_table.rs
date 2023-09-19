@@ -58,34 +58,20 @@ impl RtpStreamsTable {
             let stream_ssrc = ssrcs.get(id).unwrap();
             let stream = &streams.streams.get(stream_ssrc).unwrap();
 
-            let first_packet = streams
-                .packets
-                .get(*stream.rtp_packets.first().unwrap())
-                .unwrap();
-            let last_packet = streams
-                .packets
-                .get(*stream.rtp_packets.last().unwrap())
-                .unwrap();
-
             row.col(|ui| {
-                ui.label(stream_ssrc.to_string());
-            });
-
-            row.col(|ui| {
-                ui.label(first_packet.source_addr.to_string());
+                ui.label(stream.ssrc.to_string());
             });
             row.col(|ui| {
-                ui.label(first_packet.destination_addr.to_string());
+                ui.label(stream.source_addr.to_string());
+            });
+            row.col(|ui| {
+                ui.label(stream.destination_addr.to_string());
             });
             row.col(|ui| {
                 ui.label(stream.rtp_packets.len().to_string());
             });
             row.col(|ui| {
-                let duration = last_packet.timestamp.checked_sub(first_packet.timestamp);
-
-                if let Some(dur) = duration {
-                    ui.label(format!("{:?}", dur));
-                };
+                ui.label(format!("{:?}", stream.duration));
             });
             row.col(|ui| {
                 ui.label(format!("{:.2}%", stream.lost_percentage));
