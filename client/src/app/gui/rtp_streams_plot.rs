@@ -72,7 +72,7 @@ impl RtpStreamsPlot {
                     ui.horizontal_wrapped(|ui| {
                         ssrcs.iter().for_each(|&ssrc| {
                             if !self.streams_visibility.contains_key(ssrc) {
-                                self.streams_visibility.insert(ssrc.clone(), true);
+                                self.streams_visibility.insert(*ssrc, true);
                             }
                             let selected = self.streams_visibility.get(ssrc).unwrap();
 
@@ -93,7 +93,7 @@ impl RtpStreamsPlot {
                 let mut points_xy: Vec<(f64, f64)> = Vec::new();
 
                 streams.streams.iter().enumerate().for_each(|(stream_ix, (ssrc, stream))| {
-                    if *self.streams_visibility.get(ssrc).unwrap() == false {
+                    if !(*self.streams_visibility.get(ssrc).unwrap()) {
                         return;
                     }
 
@@ -121,7 +121,7 @@ impl RtpStreamsPlot {
                         };
                         let mut on_hover = String::new();
 
-                        on_hover.push_str(&*stream.display_name);
+                        on_hover.push_str(&stream.display_name);
                         on_hover.push_str("\n");
                         on_hover.push_str(&*format!(
                             "Source: {}\nDestination: {}\n",

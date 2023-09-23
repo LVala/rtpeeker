@@ -87,7 +87,7 @@ fn int_to_letter(unique_id: usize) -> String {
     while remaining > 0 {
         let current = (remaining) % 26;
         result.insert(0, (b'A' + current as u8) as char);
-        remaining = (remaining) / 26;
+        remaining /= 26;
     }
 
     result
