@@ -79,7 +79,7 @@ fn handle_packet(streams: &mut HashMap<u32, Stream>, packet: &Packet) {
 
 fn int_to_letter(unique_id: usize) -> String {
     if unique_id == 0 {
-        return String::from("A")
+        return String::from("A");
     }
     let mut result = String::new();
     let mut remaining = unique_id;

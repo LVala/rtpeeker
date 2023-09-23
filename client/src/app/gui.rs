@@ -9,8 +9,8 @@ use packets_table::PacketsTable;
 use rtp_packets_table::RtpPacketsTable;
 use rtp_streams_table::RtpStreamsTable;
 
-use rtp_streams_plot::RtpStreamsPlot;
 use crate::streams::RefStreams;
+use rtp_streams_plot::RtpStreamsPlot;
 
 mod packets_table;
 mod rtp_packets_table;
