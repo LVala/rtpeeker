@@ -1,22 +1,21 @@
+use std::fmt;
+
 use eframe::egui;
 use ewebsock::{WsEvent, WsMessage, WsReceiver, WsSender};
 use log::{error, warn};
+use rtpeeker_common::{Packet, Request};
+
 use packets_table::PacketsTable;
 use rtp_packets_table::RtpPacketsTable;
 use rtp_streams_table::RtpStreamsTable;
-use rtpeeker_common::{Packet, Request};
-use std::cell::RefCell;
-use std::collections::BTreeMap;
-use std::fmt;
-use std::rc::Rc;
+
 use crate::app::gui::rtp_streams_plot::RtpStreamsPlot;
+use crate::streams::RefStreams;
 
 mod packets_table;
 mod rtp_packets_table;
-mod rtp_streams_table;
 mod rtp_streams_plot;
-
-type Packets = Rc<RefCell<BTreeMap<usize, Packet>>>;
+mod rtp_streams_table;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Tab {
@@ -28,7 +27,12 @@ enum Tab {
 
 impl Tab {
     fn all() -> Vec<Self> {
-        vec![Self::Packets, Self::RtpPackets, Self::RtpStreamsTable, Self::RtpStreamsPlot,]
+        vec![
+            Self::Packets,
+            Self::RtpPackets,
+            Self::RtpStreamsTable,
+            Self::RtpStreamsPlot,
+        ]
     }
 }
 
@@ -37,8 +41,8 @@ impl fmt::Display for Tab {
         let ret = match self {
             Self::Packets => "📦 Packets",
             Self::RtpPackets => "🔈RTP Packets",
-            Self::RtpStreamsTable => "🔴 RTP streams table",
-            Tab::RtpStreamsPlot => "TODO  RTP streams plot"
+            Self::RtpStreamsTable => "🔴 RTP streams",
+            Tab::RtpStreamsPlot => "📈 RTP streams plot",
         };
 
         write!(f, "{}", ret)
@@ -51,7 +55,7 @@ pub struct Gui {
     is_capturing: bool,
     // some kind of sparse vector would be the best
     // but this will do
-    packets: Packets,
+    streams: RefStreams,
     tab: Tab,
     // would rather keep this in `Tab` enum
     // but it proved to be inconvinient
@@ -63,17 +67,17 @@ pub struct Gui {
 
 impl Gui {
     pub fn new(ws_sender: WsSender, ws_receiver: WsReceiver) -> Self {
-        let packets = Packets::default();
-        let packets_table = PacketsTable::new(packets.clone(), ws_sender.clone());
-        let rtp_packets_table = RtpPacketsTable::new(packets.clone());
-        let rtp_streams_table = RtpStreamsTable::new(packets.clone());
-        let rtp_streams_plot = RtpStreamsPlot::new(packets.clone());
+        let streams = RefStreams::default();
+        let packets_table = PacketsTable::new(streams.clone(), ws_sender.clone());
+        let rtp_packets_table = RtpPacketsTable::new(streams.clone());
+        let rtp_streams_table = RtpStreamsTable::new(streams.clone());
+        let rtp_streams_plot = RtpStreamsPlot::new(streams.clone());
 
         Self {
             ws_sender,
             ws_receiver,
             is_capturing: true,
-            packets,
+            streams,
             tab: Tab::Packets,
             packets_table,
             rtp_packets_table,
@@ -136,7 +140,7 @@ impl Gui {
                         .add(button)
                         .on_hover_text("Discard previously captured packets");
                     if resp.clicked() {
-                        self.packets.borrow_mut().clear();
+                        self.streams.borrow_mut().clear();
                     }
 
                     let button = side_button("↻");
@@ -144,6 +148,7 @@ impl Gui {
                         .add(button)
                         .on_hover_text("Refetch all previously captured packets");
                     if resp.clicked() {
+                        self.streams.borrow_mut().clear();
                         self.refetch_packets()
                     }
                 });
@@ -175,14 +180,11 @@ impl Gui {
         egui::TopBottomPanel::bottom("bottom_panel").show(ctx, |ui| {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.add_space(8.0);
-                let packets = self.packets.borrow();
-                let count = match packets.last_key_value() {
-                    Some((id, _)) => id + 1,
-                    None => 0,
-                };
+                let streams = self.streams.borrow();
+                let count = streams.packets.id_count();
                 let count_label = format!("Packets: {}", count);
 
-                let captured_count = packets.len();
+                let captured_count = streams.packets.len();
                 let captured_label = format!("Captured: {}", captured_count);
 
                 let filtered_count = 0; // TODO
@@ -210,7 +212,8 @@ impl Gui {
                 continue;
             };
 
-            self.packets.borrow_mut().insert(packet.id, packet);
+            // this also adds the packet to self.packets
+            self.streams.borrow_mut().add_packet(packet);
         }
     }
 
