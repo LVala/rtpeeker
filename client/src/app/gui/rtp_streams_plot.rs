@@ -122,15 +122,15 @@ impl RtpStreamsPlot {
                         let mut on_hover = String::new();
 
                         on_hover.push_str(&stream.display_name);
-                        on_hover.push_str("\n");
-                        on_hover.push_str(&*format!(
+                        on_hover.push('\n');
+                        on_hover.push_str(&format!(
                             "Source: {}\nDestination: {}\n",
                             packet.source_addr, packet.destination_addr
                         ));
-                        on_hover.push_str("\n");
-                        on_hover.push_str(&*rtp_packet.payload_type.to_string());
-                        on_hover.push_str("\n");
-                        on_hover.push_str(&*additional_info);
+                        on_hover.push('\n');
+                        on_hover.push_str(&rtp_packet.payload_type.to_string());
+                        on_hover.push('\n');
+                        on_hover.push_str(additional_info);
 
                         let (x, y) = match self.settings_x_axis {
                             RtpTimestamp => {
@@ -157,7 +157,7 @@ impl RtpStreamsPlot {
                             SequenceNumer => { (rtp_packet.sequence_number as f64, stream_ix as f64) }
                         };
 
-                        on_hover.push_str(&*format!("x = {} [{}]\n", x, self.settings_x_axis));
+                        on_hover.push_str(&format!("x = {} [{}]\n", x, self.settings_x_axis));
                         let point = Points::new([x, y]).name(on_hover).color(color).radius(1.5);
 
                         points.push(point);
@@ -168,7 +168,7 @@ impl RtpStreamsPlot {
                 let plot = Plot::new("halo")
                     .show_background(false)
                     .show_axes([true, false])
-                    .label_formatter(|name, _value| format!("{}", name))
+                    .label_formatter(|name, _value| name.to_string())
                     .view_aspect(2.0);
 
                 if self.requires_reset {
