@@ -1,8 +1,8 @@
 use std::fmt::{Display, Error, Formatter};
 
 use eframe::egui;
-use eframe::egui::{TextBuffer, Ui};
 use eframe::egui::plot::{Plot, Points};
+use eframe::egui::{TextBuffer, Ui};
 use eframe::epaint::Color32;
 use egui::plot::Legend;
 use rtpeeker_common::packet::SessionPacket;
