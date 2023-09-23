@@ -1,18 +1,15 @@
 use std::fmt::{Display, Error, Formatter};
 
 use eframe::egui;
-use eframe::egui::{TextBuffer, Ui};
+use eframe::egui::TextBuffer;
 use eframe::epaint::Color32;
-use eframe::glow::GREEN;
 use egui::epaint::ahash::HashMap;
-use egui::plot::{Corner, Line, Plot, PlotPoints, Points};
-use egui::TextStyle;
+use egui::plot::{Plot, Points};
 use rtpeeker_common::packet::SessionPacket;
 use rtpeeker_common::rtp::payload_type::MediaType;
 
-use SettingsXAxis::{RawTimestamp, RtpTimestamp, SequenceNumer};
-
-use crate::streams::{RefStreams, Streams};
+use crate::app::gui::rtp_streams_plot::SettingsXAxis::{RawTimestamp, RtpTimestamp, SequenceNumer};
+use crate::streams::RefStreams;
 
 #[derive(Debug)]
 pub enum SettingsXAxis {
@@ -21,7 +18,6 @@ pub enum SettingsXAxis {
     SequenceNumer,
 }
 
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct RtpStreamsPlot {
     streams: RefStreams,
     settings_x_axis: SettingsXAxis,

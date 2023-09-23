@@ -2,7 +2,6 @@ use rtpeeker_common::packet::SessionPacket;
 use rtpeeker_common::{Packet, RtpPacket};
 use std::net::SocketAddr;
 use std::time::Duration;
-use eframe::epaint::Color32;
 
 #[derive(Debug)]
 pub struct Stream {

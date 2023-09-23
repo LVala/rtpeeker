@@ -4,7 +4,6 @@ use rtpeeker_common::Packet;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use eframe::epaint::Color32;
 use stream::Stream;
 
 mod packets;
