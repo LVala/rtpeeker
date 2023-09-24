@@ -55,12 +55,14 @@ impl Streams {
 fn handle_packet(streams: &mut HashMap<u32, Stream>, packet: &Packet) {
     match packet.contents {
         SessionPacket::Rtp(ref pack) => {
+            let streams_len = streams.len();
             streams.entry(pack.ssrc).or_insert_with(|| {
                 Stream::new(
                     packet.source_addr,
                     packet.destination_addr,
                     pack.ssrc,
                     pack.payload_type.id,
+                    int_to_letter(streams_len),
                 )
             });
             streams
@@ -73,4 +75,20 @@ fn handle_packet(streams: &mut HashMap<u32, Stream>, packet: &Packet) {
         }
         _ => {}
     };
+}
+
+fn int_to_letter(unique_id: usize) -> String {
+    if unique_id == 0 {
+        return String::from("A");
+    }
+    let mut result = String::new();
+    let mut remaining = unique_id;
+
+    while remaining > 0 {
+        let current = (remaining) % 26;
+        result.insert(0, (b'A' + current as u8) as char);
+        remaining /= 26;
+    }
+
+    result
 }

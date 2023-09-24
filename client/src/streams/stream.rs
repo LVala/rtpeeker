@@ -14,6 +14,7 @@ pub struct Stream {
     pub jitter_history: Vec<f64>,
     pub lost_percentage: f64,
     pub duration: Duration,
+    pub display_name: String,
     payload_type: u8,
     previous_timestamp: Option<Duration>,
     previous_rtp_timestamp: Option<f64>,
@@ -27,6 +28,7 @@ impl Stream {
         destination_addr: SocketAddr,
         ssrc: u32,
         payload_type: u8,
+        display_name: String,
     ) -> Self {
         Self {
             rtp_packets: Vec::new(),
@@ -38,6 +40,7 @@ impl Stream {
             jitter_history: vec![0.0],
             lost_percentage: 0.0,
             duration: Duration::ZERO,
+            display_name,
             payload_type,
             previous_timestamp: None,
             previous_rtp_timestamp: None,

@@ -1,27 +1,38 @@
-use crate::streams::RefStreams;
+use std::fmt;
+
 use eframe::egui;
 use ewebsock::{WsEvent, WsMessage, WsReceiver, WsSender};
 use log::{error, warn};
+use rtpeeker_common::{Packet, Request};
+
 use packets_table::PacketsTable;
 use rtp_packets_table::RtpPacketsTable;
 use rtp_streams_table::RtpStreamsTable;
-use rtpeeker_common::{Packet, Request};
-use std::fmt;
+
+use crate::streams::RefStreams;
+use rtp_streams_plot::RtpStreamsPlot;
 
 mod packets_table;
 mod rtp_packets_table;
+mod rtp_streams_plot;
 mod rtp_streams_table;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Tab {
     Packets,
     RtpPackets,
-    RtpStreams,
+    RtpStreamsTable,
+    RtpStreamsPlot,
 }
 
 impl Tab {
     fn all() -> Vec<Self> {
-        vec![Self::Packets, Self::RtpPackets, Self::RtpStreams]
+        vec![
+            Self::Packets,
+            Self::RtpPackets,
+            Self::RtpStreamsTable,
+            Self::RtpStreamsPlot,
+        ]
     }
 }
 
@@ -30,7 +41,8 @@ impl fmt::Display for Tab {
         let ret = match self {
             Self::Packets => "📦 Packets",
             Self::RtpPackets => "🔈RTP Packets",
-            Self::RtpStreams => "🔴 RTP streams",
+            Self::RtpStreamsTable => "🔴 RTP streams",
+            Tab::RtpStreamsPlot => "📈 RTP streams plot",
         };
 
         write!(f, "{}", ret)
@@ -50,6 +62,7 @@ pub struct Gui {
     packets_table: PacketsTable,
     rtp_packets_table: RtpPacketsTable,
     rtp_streams_table: RtpStreamsTable,
+    rtp_streams_plot: RtpStreamsPlot,
 }
 
 impl Gui {
@@ -58,6 +71,7 @@ impl Gui {
         let packets_table = PacketsTable::new(streams.clone(), ws_sender.clone());
         let rtp_packets_table = RtpPacketsTable::new(streams.clone());
         let rtp_streams_table = RtpStreamsTable::new(streams.clone());
+        let rtp_streams_plot = RtpStreamsPlot::new(streams.clone());
 
         Self {
             ws_sender,
@@ -68,6 +82,7 @@ impl Gui {
             packets_table,
             rtp_packets_table,
             rtp_streams_table,
+            rtp_streams_plot,
         }
     }
 
@@ -83,7 +98,8 @@ impl Gui {
         match self.tab {
             Tab::Packets => self.packets_table.ui(ctx),
             Tab::RtpPackets => self.rtp_packets_table.ui(ctx),
-            Tab::RtpStreams => self.rtp_streams_table.ui(ctx),
+            Tab::RtpStreamsTable => self.rtp_streams_table.ui(ctx),
+            Tab::RtpStreamsPlot => self.rtp_streams_plot.ui(ctx),
         };
     }
 
