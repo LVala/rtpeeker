@@ -1,5 +1,7 @@
 use std::fmt::{Display, Error, Formatter};
 
+use self::SettingsXAxis::*;
+use crate::streams::RefStreams;
 use eframe::egui;
 use eframe::egui::TextBuffer;
 use eframe::epaint::Color32;
@@ -8,14 +10,29 @@ use egui::plot::{Plot, Points};
 use rtpeeker_common::packet::SessionPacket;
 use rtpeeker_common::rtp::payload_type::MediaType;
 
-use crate::app::gui::rtp_streams_plot::SettingsXAxis::{RawTimestamp, RtpTimestamp, SequenceNumer};
-use crate::streams::RefStreams;
-
-#[derive(Debug)]
-pub enum SettingsXAxis {
+#[derive(Debug, PartialEq)]
+enum SettingsXAxis {
     RtpTimestamp,
     RawTimestamp,
     SequenceNumer,
+}
+
+impl SettingsXAxis {
+    fn all() -> Vec<Self> {
+        vec![Self::RtpTimestamp, Self::RawTimestamp, Self::SequenceNumer]
+    }
+}
+
+impl Display for SettingsXAxis {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        let name = match self {
+            RtpTimestamp => "RTP timestamp",
+            RawTimestamp => "Packet timestamp",
+            SequenceNumer => "Sequence number",
+        };
+
+        write!(f, "{}", name)
+    }
 }
 
 pub struct RtpStreamsPlot {
@@ -42,31 +59,13 @@ impl RtpStreamsPlot {
             ui.vertical(|ui| {
                 ui.horizontal(|ui| {
                     ui.vertical(|ui| {
-                        let is_raw_timestamp = matches!(self.settings_x_axis, RawTimestamp);
-                        let is_rtp_timestamp = matches!(self.settings_x_axis, RtpTimestamp);
-                        let is_sequence_number = matches!(self.settings_x_axis, SequenceNumer);
-
-                        if ui
-                            .radio(is_raw_timestamp, "X axis is packet timestamp")
-                            .clicked()
-                        {
-                            self.settings_x_axis = RawTimestamp;
-                            self.requires_reset = true
-                        }
-                        if ui
-                            .radio(is_rtp_timestamp, "X axis is RTP timestamp")
-                            .clicked()
-                        {
-                            self.settings_x_axis = RtpTimestamp;
-                            self.requires_reset = true
-                        }
-                        if ui
-                            .radio(is_sequence_number, "X axis is sequence number")
-                            .clicked()
-                        {
-                            self.settings_x_axis = SequenceNumer;
-                            self.requires_reset = true
-                        }
+                        ui.label("X axis value:");
+                        SettingsXAxis::all().into_iter().for_each(|setting| {
+                            if ui.radio(setting == self.settings_x_axis, setting.to_string()).clicked() {
+                                self.settings_x_axis = setting;
+                                self.requires_reset = true;
+                            }
+                        });
                     });
                     ui.add_space(30.0);
                     ui.horizontal_wrapped(|ui| {
@@ -187,17 +186,5 @@ impl RtpStreamsPlot {
                 self.requires_reset = false
             })
         });
-    }
-}
-
-impl Display for SettingsXAxis {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        let name = match self {
-            RtpTimestamp => "RTP timestamp",
-            RawTimestamp => "Packet timestamp",
-            SequenceNumer => "Sequence number",
-        };
-
-        write!(f, "{}", name)
     }
 }
