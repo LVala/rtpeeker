@@ -1,9 +1,10 @@
 use std::ops::Div;
 
-use crate::streams::RefStreams;
 use eframe::egui::plot::{Line, Plot, PlotPoints};
-use egui::{Color32, Vec2};
+use eframe::emath::Align;
+use egui::{Color32, Layout, Vec2};
 use egui_extras::{Column, TableBody, TableBuilder};
+use crate::streams::RefStreams;
 
 pub struct RtpStreamsTable {
     streams: RefStreams,
@@ -52,16 +53,33 @@ impl RtpStreamsTable {
     }
 
     fn build_table_body(&mut self, body: TableBody) {
-        let streams = &self.streams.borrow();
-        let ssrcs: Vec<_> = streams.streams.keys().collect();
+        let mut streams = self.streams.borrow_mut();
+        let ssrcs: Vec<_> = streams.streams.keys().cloned().collect();
 
         body.rows(100.0, streams.streams.len(), |id, mut row| {
             let stream_ssrc = ssrcs.get(id).unwrap();
-            let stream = streams.streams.get(stream_ssrc).unwrap();
+            let stream = streams.streams.get_mut(stream_ssrc).unwrap();
 
             row.col(|ui| {
-                ui.label(stream.display_name.to_string());
+                ui.with_layout(Layout::default().with_cross_align(Align::Min), |ui| {
+                    let is_dark_mode = ui.style_mut().visuals.dark_mode;
+                    ui.style_mut().visuals.extreme_bg_color = if id % 2 == 0 {
+                        if is_dark_mode {
+                            Color32::from_rgb(32, 32, 32)
+                        } else {
+                            Color32::from_rgb(255, 255, 255)
+                        }
+                    } else {
+                        if is_dark_mode {
+                            Color32::from_rgb(28, 28, 28)
+                        } else {
+                            Color32::from_rgb(247, 247, 247)
+                        }
+                    };
+                    ui.text_edit_singleline(&mut stream.display_name);
+                });
             });
+
             row.col(|ui| {
                 ui.label(stream.ssrc.to_string());
             });
