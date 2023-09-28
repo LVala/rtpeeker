@@ -20,7 +20,7 @@ enum SettingsXAxis {
 
 impl SettingsXAxis {
     fn all() -> Vec<Self> {
-        vec![Self::RtpTimestamp, Self::RawTimestamp, Self::SequenceNumer]
+        vec![RtpTimestamp, RawTimestamp, SequenceNumer]
     }
 }
 
@@ -80,7 +80,10 @@ impl RtpStreamsPlot {
         ui.horizontal(|ui| {
             ui.label("X axis value:");
             SettingsXAxis::all().into_iter().for_each(|setting| {
-                if ui.radio(setting == self.settings_x_axis, setting.to_string()).clicked() {
+                if ui
+                    .radio(setting == self.settings_x_axis, setting.to_string())
+                    .clicked()
+                {
                     self.settings_x_axis = setting;
                     self.requires_reset = true;
                 }
@@ -90,7 +93,10 @@ impl RtpStreamsPlot {
             ui.label("Toggle streams: ");
             ssrcs.iter().for_each(|&ssrc| {
                 let selected = self.streams_visibility.get_mut(ssrc).unwrap();
-                ui.checkbox(selected, streams.streams.get(ssrc).unwrap().display_name.to_string());
+                ui.checkbox(
+                    selected,
+                    streams.streams.get(ssrc).unwrap().display_name.to_string(),
+                );
             });
         });
     }
