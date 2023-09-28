@@ -1,10 +1,10 @@
 use std::ops::Div;
 
+use crate::streams::RefStreams;
 use eframe::egui::plot::{Line, Plot, PlotPoints};
 use eframe::emath::Align;
 use egui::{Color32, Layout, Vec2};
 use egui_extras::{Column, TableBody, TableBuilder};
-use crate::streams::RefStreams;
 
 pub struct RtpStreamsTable {
     streams: RefStreams,
