@@ -1,10 +1,11 @@
 use std::ops::Div;
 
-use crate::streams::RefStreams;
 use eframe::egui::plot::{Line, Plot, PlotPoints};
 use eframe::emath::Align;
 use egui::{Color32, Layout, Vec2};
 use egui_extras::{Column, TableBody, TableBuilder};
+
+use crate::streams::RefStreams;
 
 pub struct RtpStreamsTable {
     streams: RefStreams,
@@ -69,12 +70,10 @@ impl RtpStreamsTable {
                         } else {
                             Color32::from_rgb(255, 255, 255)
                         }
+                    } else if is_dark_mode {
+                        Color32::from_rgb(28, 28, 28)
                     } else {
-                        if is_dark_mode {
-                            Color32::from_rgb(28, 28, 28)
-                        } else {
-                            Color32::from_rgb(247, 247, 247)
-                        }
+                        Color32::from_rgb(247, 247, 247)
                     };
                     ui.text_edit_singleline(&mut stream.display_name);
                 });
