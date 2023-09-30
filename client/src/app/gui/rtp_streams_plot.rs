@@ -125,8 +125,7 @@ impl RtpStreamsPlot {
         let plot = Plot::new("rtp-plot")
             .show_background(false)
             .show_axes([true, false])
-            .label_formatter(|name, _value| name.to_string())
-            .view_aspect(2.0);
+            .label_formatter(|name, _value| name.to_string());
 
         if self.requires_reset {
             plot.reset().show(ui, |plot_ui| {
