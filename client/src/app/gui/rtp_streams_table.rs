@@ -24,7 +24,7 @@ impl RtpStreamsTable {
 
     fn build_table(&mut self, ui: &mut egui::Ui) {
         let header_labels = [
-            ("Stream alias", ""),
+            ("Alias", "SSRC alias, locally given ssrc alias for ease of communication"),
             ("SSRC", "RTP SSRC (Synchronization Source Identifier) identifies the source of an RTP stream"),
             ("Source", "Source IP address and port"),
             ("Destination", "Destination IP address and port"),
@@ -38,7 +38,8 @@ impl RtpStreamsTable {
             .striped(true)
             .resizable(true)
             .stick_to_bottom(true)
-            .columns(Column::remainder().at_least(40.0), 8)
+            .column(Column::remainder().at_most(70.0))
+            .columns(Column::remainder().at_least(40.0), 7)
             .column(Column::remainder().at_least(380.0).resizable(false))
             .header(30.0, |mut header| {
                 header_labels.iter().for_each(|(label, desc)| {

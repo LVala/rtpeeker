@@ -64,13 +64,17 @@ impl RtpStreamsPlot {
     }
 
     fn update_streams_visibility(&mut self) {
-        let streams = self.streams.borrow();
-        let ssrcs: Vec<_> = streams.streams.keys().collect();
-        ssrcs.iter().for_each(|&ssrc| {
-            if !self.streams_visibility.contains_key(ssrc) {
-                self.streams_visibility.insert(*ssrc, true);
-            }
-        });
+        self.streams
+            .borrow()
+            .streams
+            .keys()
+            .collect::<Vec<_>>()
+            .iter()
+            .for_each(|&ssrc| {
+                if !self.streams_visibility.contains_key(ssrc) {
+                    self.streams_visibility.insert(*ssrc, true);
+                }
+            });
     }
 
     fn options_ui(&mut self, ui: &mut Ui) {
@@ -98,6 +102,9 @@ impl RtpStreamsPlot {
                     streams.streams.get(ssrc).unwrap().display_name.to_string(),
                 );
             });
+        });
+        ui.vertical(|ui| {
+            ui.add_space(10.0);
         });
     }
 
