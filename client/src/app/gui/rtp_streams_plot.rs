@@ -192,8 +192,8 @@ impl RtpStreamsPlot {
         rtp_packets.iter().enumerate().for_each(|(packet_ix, &ix)| {
             let packet = streams.packets.get(ix).unwrap();
             let SessionPacket::Rtp(ref rtp_packet) = packet.contents else {
-                    unreachable!();
-                };
+                unreachable!();
+            };
 
             let prev_rtp_id = *rtp_packets.get(packet_ix - 1).unwrap();
             let prev_rtp_packet = streams.packets.get(prev_rtp_id).unwrap();
