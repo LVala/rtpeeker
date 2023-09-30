@@ -63,6 +63,7 @@ pub struct Gui {
     rtp_packets_table: RtpPacketsTable,
     rtp_streams_table: RtpStreamsTable,
     rtp_streams_plot: RtpStreamsPlot,
+    update_counter: u32,
 }
 
 impl Gui {
@@ -83,6 +84,7 @@ impl Gui {
             rtp_packets_table,
             rtp_streams_table,
             rtp_streams_plot,
+            update_counter: 0,
         }
     }
 
@@ -95,12 +97,25 @@ impl Gui {
         self.build_top_bar(ctx);
         self.build_bottom_bar(ctx);
 
+        let should_refresh_plot = self.should_refresh_plot();
         match self.tab {
             Tab::Packets => self.packets_table.ui(ctx),
             Tab::RtpPackets => self.rtp_packets_table.ui(ctx),
             Tab::RtpStreamsTable => self.rtp_streams_table.ui(ctx),
-            Tab::RtpStreamsPlot => self.rtp_streams_plot.ui(ctx),
+            Tab::RtpStreamsPlot => self.rtp_streams_plot.ui(ctx, should_refresh_plot),
         };
+    }
+
+    fn should_refresh_plot(&mut self) -> bool {
+        // For large amount data plot can be laggy, so we don't refresh on every ui update
+        if self.update_counter == u32::MAX {
+            self.update_counter = 0
+        }
+
+        let should_refresh = self.update_counter % 25 == 0;
+
+        self.update_counter += 1;
+        should_refresh
     }
 
     fn build_side_panel(&mut self, ctx: &egui::Context) {
@@ -170,6 +185,7 @@ impl Gui {
                         .clicked()
                     {
                         self.tab = *tab;
+                        self.update_counter = 0;
                     }
                 });
             });

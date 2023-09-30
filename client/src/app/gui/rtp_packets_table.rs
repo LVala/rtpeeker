@@ -29,7 +29,7 @@ impl RtpPacketsTable {
         let streams = self.streams.borrow();
         let ssrcs: Vec<_> = streams.streams.keys().collect();
 
-        ui.horizontal(|ui| {
+        ui.horizontal_wrapped(|ui| {
             ui.label("Filter by: ");
             ssrcs.iter().for_each(|&ssrc| {
                 let selected = self.streams_visibility.get_mut(ssrc).unwrap();
