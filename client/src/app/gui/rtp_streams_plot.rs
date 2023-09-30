@@ -195,13 +195,17 @@ impl RtpStreamsPlot {
                 unreachable!();
             };
 
-            let prev_rtp_id = *rtp_packets.get(packet_ix - 1).unwrap();
-            let prev_rtp_packet = streams.packets.get(prev_rtp_id).unwrap();
+            let previous_packet = if packet_ix == 0 {
+                None
+            } else {
+                let prev_rtp_id = *rtp_packets.get(packet_ix - 1).unwrap();
+                streams.packets.get(prev_rtp_id)
+            };
+
             let (x, y) = Self::get_x_and_y(
                 points_xy,
                 stream_ix,
-                prev_rtp_packet,
-                packet_ix,
+                previous_packet,
                 packet,
                 rtp_packet,
                 settings_x_axis,
@@ -228,27 +232,30 @@ impl RtpStreamsPlot {
     fn get_x_and_y(
         points_xy: &mut [(f64, f64)],
         stream_ix: usize,
-        previous_packet: &Packet,
-        packet_ix: usize,
+        previous_packet: Option<&Packet>,
         packet: &Packet,
         rtp_packet: &RtpPacket,
         settings_x_axis: SettingsXAxis,
     ) -> (f64, f64) {
         let (x, y) = match settings_x_axis {
             RtpTimestamp => {
-                let SessionPacket::Rtp(ref prev_rtp) = previous_packet.contents else {
-                    unreachable!();
-                };
+                if let Some(prev_packet) = previous_packet {
+                    let SessionPacket::Rtp(ref prev_rtp) = prev_packet.contents else {
+                        unreachable!();
+                    };
 
-                let y = if packet_ix == 0 || rtp_packet.timestamp != prev_rtp.timestamp {
-                    stream_ix as f64
+                    let y = if rtp_packet.timestamp != prev_rtp.timestamp {
+                        stream_ix as f64
+                    } else {
+                        let prev_y = points_xy.last().unwrap().to_owned().1;
+                        let y_shift = 0.01;
+                        prev_y + y_shift
+                    };
+
+                    (rtp_packet.timestamp as f64, y)
                 } else {
-                    let prev_y = points_xy.last().unwrap().to_owned().1;
-                    let y_shift = 0.01;
-                    prev_y + y_shift
-                };
-
-                (rtp_packet.timestamp as f64, y)
+                    (rtp_packet.timestamp as f64, stream_ix as f64)
+                }
             }
             RawTimestamp => (packet.timestamp.as_secs_f64(), stream_ix as f64),
             SequenceNumer => (rtp_packet.sequence_number as f64, stream_ix as f64),
