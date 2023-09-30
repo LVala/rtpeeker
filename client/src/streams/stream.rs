@@ -10,7 +10,7 @@ pub struct Stream {
     pub source_addr: SocketAddr,
     pub destination_addr: SocketAddr,
     pub ssrc: u32,
-    pub jitter: f64,
+    pub jitter_in_ms: f64,
     pub jitter_history: Vec<f64>,
     pub lost_percentage: f64,
     pub duration: Duration,
@@ -36,7 +36,7 @@ impl Stream {
             source_addr,
             destination_addr,
             ssrc,
-            jitter: 0.0,
+            jitter_in_ms: 0.0,
             jitter_history: vec![0.0],
             lost_percentage: 0.0,
             duration: Duration::ZERO,
@@ -87,7 +87,7 @@ impl Stream {
 
         if rtp.payload_type.clock_rate.is_none() || rtp.payload_type.id != self.payload_type {
             self.payload_type = rtp.payload_type.id;
-            self.jitter = 0.0;
+            self.jitter_in_ms = 0.0;
             self.jitter_history.clear()
         } else {
             let clock_rate = rtp.payload_type.clock_rate.unwrap();
@@ -98,8 +98,8 @@ impl Stream {
                     - self.previous_rtp_timestamp.unwrap() * unit_timestamp;
                 let d = arrival_time_difference.as_secs_f64() - timestamp_difference;
 
-                self.jitter = self.jitter + (d - self.jitter) / 16.0;
-                self.jitter_history.push(self.jitter);
+                self.jitter_in_ms = self.jitter_in_ms + (d - self.jitter_in_ms) / 16.0;
+                self.jitter_history.push(self.jitter_in_ms * 1000.0);
             }
         }
 

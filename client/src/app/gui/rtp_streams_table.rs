@@ -99,7 +99,7 @@ impl RtpStreamsTable {
                 ui.label(format!("{:.2}%", stream.lost_percentage));
             });
             row.col(|ui| {
-                ui.label(format!("{:.10}", stream.jitter.to_string()));
+                ui.label(format!("{:.8}ms", stream.jitter_in_ms.to_string()));
             });
             row.col(|ui| {
                 ui.vertical_centered_justified(|ui| {
@@ -121,7 +121,7 @@ impl RtpStreamsTable {
                             if name.ne("jitter") || value.x.fract() != 0.0 {
                                 return "".to_string();
                             }
-                            format!("no = {}\njitter = {:.5}", value.x, value.y)
+                            format!("packet number = {}\njitter = {:.5}ms", value.x, value.y)
                         })
                         .set_margin_fraction(Vec2::new(0.1, 0.1))
                         .allow_scroll(false)
