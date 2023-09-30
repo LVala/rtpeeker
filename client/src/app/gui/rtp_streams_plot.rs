@@ -1,3 +1,4 @@
+use std::cell::Ref;
 use std::fmt::{Display, Error, Formatter};
 
 use eframe::egui;
@@ -6,11 +7,11 @@ use eframe::epaint::Color32;
 use egui::epaint::ahash::HashMap;
 use egui::plot::{Plot, PlotUi, Points};
 use egui::Ui;
-use rtpeeker_common::{Packet, RtpPacket};
 use rtpeeker_common::packet::SessionPacket;
 use rtpeeker_common::rtp::payload_type::MediaType;
+use rtpeeker_common::{Packet, RtpPacket};
 
-use crate::streams::RefStreams;
+use crate::streams::{RefStreams, Streams};
 
 use self::SettingsXAxis::*;
 
@@ -152,7 +153,6 @@ impl RtpStreamsPlot {
     fn refresh_points(&mut self) {
         self.points_data.clear();
         let streams = self.streams.borrow();
-        let packets = &streams.packets;
         let mut points_xy: Vec<(f64, f64)> = Vec::new();
 
         streams
@@ -164,49 +164,65 @@ impl RtpStreamsPlot {
                     return;
                 }
 
-                stream
-                    .rtp_packets
-                    .iter()
-                    .enumerate()
-                    .for_each(|(packet_ix, &ix)| {
-                        let packet = packets.get(ix).unwrap();
-                        let SessionPacket::Rtp(ref rtp_packet) = packet.contents else {
-                            unreachable!();
-                        };
-
-                        let prev_rtp_id = *stream.rtp_packets.get(packet_ix - 1).unwrap();
-                        let prev_rtp_packet = streams.packets.get(prev_rtp_id).unwrap();
-                        let (x, y) = Self::get_x_and_y(
-                            &mut points_xy,
-                            stream_ix,
-                            prev_rtp_packet,
-                            packet_ix,
-                            packet,
-                            rtp_packet,
-                            self.settings_x_axis,
-                        );
-                        let on_hover = Self::build_on_hover_text(
-                            stream.display_name.to_string(),
-                            packet,
-                            rtp_packet,
-                            x,
-                            self.settings_x_axis,
-                        );
-
-                        self.points_data.push((
-                            x,
-                            y,
-                            on_hover,
-                            Self::get_color(rtp_packet),
-                            Self::get_radius(),
-                        ));
-                        points_xy.push((x, y));
-                    });
+                Self::build_stream_points(
+                    &streams,
+                    &mut points_xy,
+                    stream_ix,
+                    &stream.rtp_packets,
+                    stream.display_name.to_string(),
+                    self.settings_x_axis,
+                    &mut self.points_data,
+                );
             });
     }
 
     fn stream_is_hidden(streams_visibility: &HashMap<u32, bool>, ssrc: &u32) -> bool {
         !(*streams_visibility.get(ssrc).unwrap())
+    }
+
+    fn build_stream_points(
+        streams: &Ref<Streams>,
+        points_xy: &mut Vec<(f64, f64)>,
+        stream_ix: usize,
+        rtp_packets: &[usize],
+        display_name: String,
+        settings_x_axis: SettingsXAxis,
+        points_data: &mut Vec<(f64, f64, String, Color32, f32)>,
+    ) {
+        rtp_packets.iter().enumerate().for_each(|(packet_ix, &ix)| {
+            let packet = streams.packets.get(ix).unwrap();
+            let SessionPacket::Rtp(ref rtp_packet) = packet.contents else {
+                    unreachable!();
+                };
+
+            let prev_rtp_id = *rtp_packets.get(packet_ix - 1).unwrap();
+            let prev_rtp_packet = streams.packets.get(prev_rtp_id).unwrap();
+            let (x, y) = Self::get_x_and_y(
+                points_xy,
+                stream_ix,
+                prev_rtp_packet,
+                packet_ix,
+                packet,
+                rtp_packet,
+                settings_x_axis,
+            );
+            let on_hover = Self::build_on_hover_text(
+                display_name.to_string(),
+                packet,
+                rtp_packet,
+                x,
+                settings_x_axis,
+            );
+
+            points_data.push((
+                x,
+                y,
+                on_hover,
+                Self::get_color(rtp_packet),
+                Self::get_radius(),
+            ));
+            points_xy.push((x, y));
+        });
     }
 
     fn get_x_and_y(
