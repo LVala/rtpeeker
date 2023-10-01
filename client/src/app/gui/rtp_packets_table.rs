@@ -1,6 +1,6 @@
-use std::collections::HashMap;
 use egui_extras::{Column, TableBody, TableBuilder};
 use rtpeeker_common::packet::SessionPacket;
+use std::collections::HashMap;
 
 use crate::streams::{is_stream_visible, RefStreams};
 
