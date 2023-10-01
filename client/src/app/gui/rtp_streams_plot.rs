@@ -46,7 +46,7 @@ pub struct RtpStreamsPlot {
     settings_x_axis: SettingsXAxis,
     requires_reset: bool,
     streams_visibility: HashMap<u32, bool>,
-    last_packets_len: usize,
+    last_rtp_packets_len: usize,
 }
 
 impl RtpStreamsPlot {
@@ -57,7 +57,7 @@ impl RtpStreamsPlot {
             settings_x_axis: RtpTimestamp,
             requires_reset: false,
             streams_visibility: HashMap::default(),
-            last_packets_len: 0,
+            last_rtp_packets_len: 0,
         }
     }
 
@@ -105,8 +105,8 @@ impl RtpStreamsPlot {
     }
 
     fn plot_ui(&mut self, ui: &mut Ui) {
-        let number_of_packets = self.streams.borrow().packets.len();
-        if self.last_packets_len != number_of_packets || self.requires_reset {
+        let number_of_rtp_packets = self.number_of_rtp_packets();
+        if self.last_rtp_packets_len != number_of_rtp_packets || self.requires_reset {
             self.refresh_points();
         }
 
@@ -125,7 +125,16 @@ impl RtpStreamsPlot {
             });
         }
         self.requires_reset = false;
-        self.last_packets_len = number_of_packets;
+        self.last_rtp_packets_len = number_of_rtp_packets;
+    }
+
+    fn number_of_rtp_packets(&mut self) -> usize {
+        self.streams
+            .borrow()
+            .streams
+            .values()
+            .map(|stream| stream.rtp_packets.len())
+            .sum()
     }
 
     fn draw_points(&mut self, plot_ui: &mut PlotUi) {

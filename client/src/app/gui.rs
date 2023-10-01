@@ -63,7 +63,6 @@ pub struct Gui {
     rtp_packets_table: RtpPacketsTable,
     rtp_streams_table: RtpStreamsTable,
     rtp_streams_plot: RtpStreamsPlot,
-    update_counter: u32,
 }
 
 impl Gui {
@@ -84,7 +83,6 @@ impl Gui {
             rtp_packets_table,
             rtp_streams_table,
             rtp_streams_plot,
-            update_counter: 0,
         }
     }
 
@@ -172,7 +170,6 @@ impl Gui {
                         .clicked()
                     {
                         self.tab = *tab;
-                        self.update_counter = 0;
                     }
                 });
             });
