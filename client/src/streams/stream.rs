@@ -98,8 +98,8 @@ impl Stream {
                     - self.previous_rtp_timestamp.unwrap() * unit_timestamp;
                 let d = arrival_time_difference.as_secs_f64() - timestamp_difference;
 
-                self.jitter_in_ms = self.jitter_in_ms + (d - self.jitter_in_ms) / 16.0;
-                self.jitter_history.push(self.jitter_in_ms * 1000.0);
+                self.jitter_in_ms = self.jitter_in_ms + (d - self.jitter_in_ms) / 16.0 * 1000.0;
+                self.jitter_history.push(self.jitter_in_ms);
             }
         }
 

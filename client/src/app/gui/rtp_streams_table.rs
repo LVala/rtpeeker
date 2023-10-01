@@ -1,8 +1,7 @@
 use std::ops::Div;
 
 use eframe::egui::plot::{Line, Plot, PlotPoints};
-use eframe::emath::Align;
-use egui::{Color32, Layout, Vec2};
+use egui::{Color32, TextEdit, Vec2};
 use egui_extras::{Column, TableBody, TableBuilder};
 
 use crate::streams::RefStreams;
@@ -24,7 +23,7 @@ impl RtpStreamsTable {
 
     fn build_table(&mut self, ui: &mut egui::Ui) {
         let header_labels = [
-            ("Alias", "SSRC alias, locally given ssrc alias for ease of communication"),
+            ("Alias", "Locally assigned SSRC alias to make differentiating streams more convenient"),
             ("SSRC", "RTP SSRC (Synchronization Source Identifier) identifies the source of an RTP stream"),
             ("Source", "Source IP address and port"),
             ("Destination", "Destination IP address and port"),
@@ -63,21 +62,8 @@ impl RtpStreamsTable {
             let stream = streams.streams.get_mut(stream_ssrc).unwrap();
 
             row.col(|ui| {
-                ui.with_layout(Layout::default().with_cross_align(Align::Min), |ui| {
-                    let is_dark_mode = ui.style_mut().visuals.dark_mode;
-                    ui.style_mut().visuals.extreme_bg_color = if id % 2 == 0 {
-                        if is_dark_mode {
-                            Color32::from_rgb(32, 32, 32)
-                        } else {
-                            Color32::from_rgb(255, 255, 255)
-                        }
-                    } else if is_dark_mode {
-                        Color32::from_rgb(28, 28, 28)
-                    } else {
-                        Color32::from_rgb(247, 247, 247)
-                    };
-                    ui.text_edit_singleline(&mut stream.display_name);
-                });
+                let text_edit = TextEdit::singleline(&mut stream.display_name).frame(false);
+                ui.add(text_edit);
             });
 
             row.col(|ui| {

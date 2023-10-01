@@ -92,3 +92,7 @@ fn int_to_letter(unique_id: usize) -> String {
 
     result
 }
+
+pub fn is_stream_visible(streams_visibility: &mut HashMap<u32, bool>, ssrc: u32) -> &mut bool {
+    streams_visibility.entry(ssrc).or_insert(true)
+}
