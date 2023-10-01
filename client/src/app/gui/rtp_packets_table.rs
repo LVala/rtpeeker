@@ -1,20 +1,45 @@
-use crate::streams::RefStreams;
 use egui_extras::{Column, TableBody, TableBuilder};
 use rtpeeker_common::packet::SessionPacket;
-use rtpeeker_common::packet::SessionProtocol::Rtp;
+use std::collections::HashMap;
+
+use crate::streams::{is_stream_visible, RefStreams};
 
 pub struct RtpPacketsTable {
     streams: RefStreams,
+    streams_visibility: HashMap<u32, bool>,
 }
 
 impl RtpPacketsTable {
     pub fn new(streams: RefStreams) -> Self {
-        Self { streams }
+        Self {
+            streams,
+            streams_visibility: HashMap::default(),
+        }
     }
 
     pub fn ui(&mut self, ctx: &egui::Context) {
         egui::CentralPanel::default().show(ctx, |ui| {
+            self.options_ui(ui);
             self.build_table(ui);
+        });
+    }
+
+    fn options_ui(&mut self, ui: &mut egui::Ui) {
+        let streams = self.streams.borrow();
+        let ssrcs: Vec<_> = streams.streams.keys().collect();
+
+        ui.horizontal_wrapped(|ui| {
+            ui.label("Filter by: ");
+            ssrcs.iter().for_each(|&ssrc| {
+                let selected = is_stream_visible(&mut self.streams_visibility, *ssrc);
+                ui.checkbox(
+                    selected,
+                    streams.streams.get(ssrc).unwrap().display_name.to_string(),
+                );
+            });
+        });
+        ui.vertical(|ui| {
+            ui.add_space(5.0);
         });
     }
 
@@ -32,6 +57,7 @@ impl RtpPacketsTable {
             ("Sequence Number", "RTP sequence number ensures correct order and helps detect packet loss"),
             ("Timestamp", "RTP timestamp is the sender time of generating packet"),
             ("SSRC", "RTP SSRC (Synchronization Source Identifier) identifies the source of an RTP stream"),
+            ("Alias", "Locally assigned SSRC alias to make differentiating streams more convenient"),
             ("CSRC", "RTP CSRC (Contributing Source Identifier)\nSSRC identifiers of the sources that have contributed to a composite RTP packet,\ntypically used for audio mixing in conferences."),
             ("Payload Length", "RTP payload length (Excluding header and extensions)"),
         ];
@@ -42,7 +68,9 @@ impl RtpPacketsTable {
             .column(Column::remainder().at_least(40.0))
             .column(Column::remainder().at_least(80.0))
             .columns(Column::remainder().at_least(130.0), 2)
-            .columns(Column::remainder().at_least(80.0), 10)
+            .columns(Column::remainder().at_least(80.0), 8)
+            .column(Column::remainder().at_most(50.0))
+            .columns(Column::remainder().at_least(80.0), 2)
             .header(30.0, |mut header| {
                 header_labels.iter().for_each(|(label, desc)| {
                     header.col(|ui| {
@@ -57,11 +85,27 @@ impl RtpPacketsTable {
     }
 
     fn build_table_body(&mut self, body: TableBody) {
-        let packets = &self.streams.borrow().packets;
-        let rtp_packets: Vec<_> = packets
+        let streams = &self.streams.borrow();
+        let rtp_packets: Vec<_> = streams
+            .packets
             .values()
-            .filter(|packet| packet.session_protocol == Rtp)
+            .filter(|packet| {
+                let SessionPacket::Rtp(ref rtp_packet) = packet.contents else {
+                    return false;
+                };
+
+                *is_stream_visible(&mut self.streams_visibility, rtp_packet.ssrc)
+            })
             .collect();
+
+        if rtp_packets.is_empty() {
+            return;
+        }
+
+        let mut ssrc_to_display_name: HashMap<&u32, String> = HashMap::default();
+        streams.streams.iter().for_each(|(ssrc, stream)| {
+            ssrc_to_display_name.insert(ssrc, stream.display_name.to_string());
+        });
 
         let first_ts = rtp_packets.get(0).unwrap().timestamp;
         body.rows(25.0, rtp_packets.len(), |row_ix, mut row| {
@@ -116,6 +160,14 @@ impl RtpPacketsTable {
 
             row.col(|ui| {
                 ui.label(rtp_packet.ssrc.to_string());
+            });
+            row.col(|ui| {
+                ui.label(
+                    ssrc_to_display_name
+                        .get(&rtp_packet.ssrc)
+                        .unwrap()
+                        .to_string(),
+                );
             });
 
             row.col(|ui| {

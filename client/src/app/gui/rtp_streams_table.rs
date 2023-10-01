@@ -1,9 +1,10 @@
 use std::ops::Div;
 
-use crate::streams::RefStreams;
 use eframe::egui::plot::{Line, Plot, PlotPoints};
-use egui::{Color32, Vec2};
+use egui::{Color32, TextEdit, Vec2};
 use egui_extras::{Column, TableBody, TableBuilder};
+
+use crate::streams::RefStreams;
 
 pub struct RtpStreamsTable {
     streams: RefStreams,
@@ -22,6 +23,7 @@ impl RtpStreamsTable {
 
     fn build_table(&mut self, ui: &mut egui::Ui) {
         let header_labels = [
+            ("Alias", "Locally assigned SSRC alias to make differentiating streams more convenient"),
             ("SSRC", "RTP SSRC (Synchronization Source Identifier) identifies the source of an RTP stream"),
             ("Source", "Source IP address and port"),
             ("Destination", "Destination IP address and port"),
@@ -35,6 +37,7 @@ impl RtpStreamsTable {
             .striped(true)
             .resizable(true)
             .stick_to_bottom(true)
+            .column(Column::remainder().at_most(70.0))
             .columns(Column::remainder().at_least(40.0), 7)
             .column(Column::remainder().at_least(380.0).resizable(false))
             .header(30.0, |mut header| {
@@ -51,12 +54,17 @@ impl RtpStreamsTable {
     }
 
     fn build_table_body(&mut self, body: TableBody) {
-        let streams = &self.streams.borrow();
-        let ssrcs: Vec<_> = streams.streams.keys().collect();
+        let mut streams = self.streams.borrow_mut();
+        let ssrcs: Vec<_> = streams.streams.keys().cloned().collect();
 
         body.rows(100.0, streams.streams.len(), |id, mut row| {
             let stream_ssrc = ssrcs.get(id).unwrap();
-            let stream = &streams.streams.get(stream_ssrc).unwrap();
+            let stream = streams.streams.get_mut(stream_ssrc).unwrap();
+
+            row.col(|ui| {
+                let text_edit = TextEdit::singleline(&mut stream.display_name).frame(false);
+                ui.add(text_edit);
+            });
 
             row.col(|ui| {
                 ui.label(stream.ssrc.to_string());
@@ -77,7 +85,7 @@ impl RtpStreamsTable {
                 ui.label(format!("{:.2}%", stream.lost_percentage));
             });
             row.col(|ui| {
-                ui.label(format!("{:.10}", stream.jitter.to_string()));
+                ui.label(format!("{:.8}ms", stream.jitter_in_ms.to_string()));
             });
             row.col(|ui| {
                 ui.vertical_centered_justified(|ui| {
@@ -99,7 +107,7 @@ impl RtpStreamsTable {
                             if name.ne("jitter") || value.x.fract() != 0.0 {
                                 return "".to_string();
                             }
-                            format!("no = {}\njitter = {:.5}", value.x, value.y)
+                            format!("packet number = {}\njitter = {:.5}ms", value.x, value.y)
                         })
                         .set_margin_fraction(Vec2::new(0.1, 0.1))
                         .allow_scroll(false)
