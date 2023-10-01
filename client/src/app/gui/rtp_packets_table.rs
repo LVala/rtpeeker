@@ -1,4 +1,4 @@
-use egui::epaint::ahash::HashMap;
+use std::collections::HashMap;
 use egui_extras::{Column, TableBody, TableBuilder};
 use rtpeeker_common::packet::SessionPacket;
 
@@ -102,7 +102,7 @@ impl RtpPacketsTable {
             return;
         }
 
-        let mut ssrc_to_display_name = HashMap::default();
+        let mut ssrc_to_display_name: HashMap<&u32, String> = HashMap::default();
         streams.streams.iter().for_each(|(ssrc, stream)| {
             ssrc_to_display_name.insert(ssrc, stream.display_name.to_string());
         });

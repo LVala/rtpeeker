@@ -1,10 +1,10 @@
 use std::cell::Ref;
+use std::collections::HashMap;
 use std::fmt::{Display, Error, Formatter};
 
 use eframe::egui;
 use eframe::egui::TextBuffer;
 use eframe::epaint::Color32;
-use egui::epaint::ahash::HashMap;
 use egui::plot::{Plot, PlotUi, Points};
 use egui::Ui;
 use rtpeeker_common::packet::SessionPacket;
@@ -106,7 +106,7 @@ impl RtpStreamsPlot {
 
     fn plot_ui(&mut self, ui: &mut Ui) {
         let number_of_packets = self.streams.borrow().packets.len();
-        if self.last_packets_len != number_of_packets {
+        if self.last_packets_len != number_of_packets || self.requires_reset {
             self.refresh_points();
         }
 
