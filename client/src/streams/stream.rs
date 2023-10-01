@@ -96,9 +96,10 @@ impl Stream {
             if let Some(arrival_time_difference) = arrival_time_difference_result {
                 let timestamp_difference = rtp.timestamp as f64 * unit_timestamp
                     - self.previous_rtp_timestamp.unwrap() * unit_timestamp;
-                let d = arrival_time_difference.as_secs_f64() - timestamp_difference;
+                let d_in_sec = arrival_time_difference.as_secs_f64() - timestamp_difference;
+                let d_in_ms = d_in_sec * 1000.0;
 
-                self.jitter_in_ms = self.jitter_in_ms + (d - self.jitter_in_ms) / 16.0 * 1000.0;
+                self.jitter_in_ms = self.jitter_in_ms + (d_in_ms - self.jitter_in_ms) / 16.0;
                 self.jitter_history.push(self.jitter_in_ms);
             }
         }
