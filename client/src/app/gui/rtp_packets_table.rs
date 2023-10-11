@@ -1,8 +1,8 @@
-use std::collections::HashMap;
 use eframe::epaint::Color32;
 use egui::RichText;
 use egui_extras::{Column, TableBody, TableBuilder};
 use rtpeeker_common::packet::SessionPacket;
+use std::collections::HashMap;
 
 use crate::streams::{is_stream_visible, RefStreams};
 
@@ -154,8 +154,13 @@ impl RtpPacketsTable {
 
             row.col(|ui| {
                 if rtp_packet.previous_packet_is_lost {
-                    let resp = ui.label(RichText::from(format!("{} ⚠", rtp_packet.sequence_number)).color(Color32::GOLD));
-                    resp.on_hover_text(RichText::from("Previous packet is lost!").color(Color32::GOLD));
+                    let resp = ui.label(
+                        RichText::from(format!("{} ⚠", rtp_packet.sequence_number))
+                            .color(Color32::GOLD),
+                    );
+                    resp.on_hover_text(
+                        RichText::from("Previous packet is lost!").color(Color32::GOLD),
+                    );
                 } else {
                     ui.label(rtp_packet.sequence_number.to_string());
                 }
@@ -203,7 +208,6 @@ impl RtpPacketsTable {
         });
     }
 }
-
 
 pub fn format_boolean(value: bool) -> RichText {
     if value {

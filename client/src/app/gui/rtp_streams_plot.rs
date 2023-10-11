@@ -212,7 +212,13 @@ fn build_stream_points(
             settings_x_axis,
         );
 
-        points_data.push((x, y, on_hover, get_color(rtp_packet), get_radius(rtp_packet)));
+        points_data.push((
+            x,
+            y,
+            on_hover,
+            get_color(rtp_packet),
+            get_radius(rtp_packet),
+        ));
         points_xy.push((x, y));
     });
 }

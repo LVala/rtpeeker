@@ -99,7 +99,10 @@ impl RtpStreamsTable {
                 } else {
                     Color32::RED
                 };
-                ui.label(RichText::from(format!("{:.8}ms", stream.jitter_in_ms.to_string())).color(color));
+                ui.label(
+                    RichText::from(format!("{:.8}ms", stream.jitter_in_ms.to_string()))
+                        .color(color),
+                );
             });
             row.col(|ui| {
                 ui.vertical_centered_justified(|ui| {
