@@ -1,7 +1,7 @@
 use std::ops::Div;
 
 use eframe::egui::plot::{Line, Plot, PlotPoints};
-use egui::{Color32, TextEdit, Vec2};
+use egui::{Color32, RichText, TextEdit, Vec2};
 use egui_extras::{Column, TableBody, TableBuilder};
 
 use crate::streams::RefStreams;
@@ -82,10 +82,24 @@ impl RtpStreamsTable {
                 ui.label(format!("{:?}", stream.duration));
             });
             row.col(|ui| {
-                ui.label(format!("{:.2}%", stream.lost_percentage));
+                let color = if stream.lost_percentage <= 0.3 {
+                    Color32::GREEN
+                } else if stream.lost_percentage <= 2.0 {
+                    Color32::GOLD
+                } else {
+                    Color32::RED
+                };
+                ui.label(RichText::from(format!("{:.2}%", stream.lost_percentage)).color(color));
             });
             row.col(|ui| {
-                ui.label(format!("{:.8}ms", stream.jitter_in_ms.to_string()));
+                let color = if stream.jitter_in_ms <= 1.0 {
+                    Color32::GREEN
+                } else if stream.jitter_in_ms <= 5.0 {
+                    Color32::GOLD
+                } else {
+                    Color32::RED
+                };
+                ui.label(RichText::from(format!("{:.8}ms", stream.jitter_in_ms.to_string())).color(color));
             });
             row.col(|ui| {
                 ui.vertical_centered_justified(|ui| {

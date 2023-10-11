@@ -23,10 +23,11 @@ impl Streams {
         self.streams.clear();
     }
 
-    pub fn add_packet(&mut self, packet: Packet) {
+    pub fn add_packet(&mut self, mut packet: Packet) {
         let is_new = self.packets.is_new(&packet);
 
         if is_new {
+            self.detect_previous_packet_lost(&mut packet);
             handle_packet(&mut self.streams, &packet);
             self.packets.add_packet(packet);
         } else {
@@ -37,6 +38,22 @@ impl Streams {
             self.packets.add_packet(packet);
             self.recalculate();
         }
+    }
+
+    fn detect_previous_packet_lost(&mut self, packet: &mut Packet) {
+        if let SessionPacket::Rtp(ref mut new_rtp) = packet.contents {
+            if let Some(stream) = self.streams.get(&new_rtp.ssrc) {
+                if let Some(last_rtp_packet) = stream.rtp_packets.last() {
+                    let last_packet = self.packets.get(*last_rtp_packet).unwrap();
+                    let SessionPacket::Rtp(ref prev_rtp) = last_packet.contents else {
+                        unreachable!();
+                    };
+                    if prev_rtp.sequence_number + 1 != new_rtp.sequence_number {
+                        new_rtp.previous_packet_is_lost = true;
+                    }
+                }
+            }
+        };
     }
 
     fn recalculate(&mut self) {

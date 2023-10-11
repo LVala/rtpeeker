@@ -15,6 +15,7 @@ pub struct RtpPacket {
     pub ssrc: u32,
     pub csrc: Vec<u32>,
     pub payload_length: usize, // extension information skipped
+    pub previous_packet_is_lost: bool,
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -44,6 +45,7 @@ impl RtpPacket {
             ssrc: header.ssrc,
             csrc: header.csrc,
             payload_length: payload.len(),
+            previous_packet_is_lost: false,
         })
     }
 }
