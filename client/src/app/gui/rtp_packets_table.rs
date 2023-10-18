@@ -209,7 +209,7 @@ impl RtpPacketsTable {
     }
 }
 
-pub fn format_boolean(value: bool) -> RichText {
+fn format_boolean(value: bool) -> RichText {
     if value {
         RichText::from("✔").color(Color32::GREEN)
     } else {
