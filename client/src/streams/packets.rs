@@ -11,6 +11,10 @@ impl Packets {
         self.packets.get(&id)
     }
 
+    pub fn get_mut(&mut self, id: usize) -> Option<&mut Packet> {
+        self.packets.get_mut(&id)
+    }
+
     pub fn values(&self) -> Values<'_, usize, Packet> {
         self.packets.values()
     }
