@@ -12,7 +12,7 @@ pub mod rtp;
 pub enum Request {
     FetchAll,
     Reparse(usize, packet::SessionProtocol),
-    ChangeSource(String)
+    ChangeSource(String),
 }
 
 #[derive(Serialize, Deserialize, Debug)]
