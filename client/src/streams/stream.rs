@@ -90,6 +90,7 @@ impl Stream {
             self.jitter_in_ms = 0.0;
             self.jitter_history.clear()
         } else {
+            // RFC 3550
             let clock_rate = rtp.payload_type.clock_rate.unwrap();
             let unit_timestamp = 1.0 / clock_rate as f64;
             let arrival_time_difference_result = packet.timestamp.checked_sub(last_timestamp);
@@ -97,7 +98,7 @@ impl Stream {
                 let timestamp_difference = rtp.timestamp as f64 * unit_timestamp
                     - self.previous_rtp_timestamp.unwrap() * unit_timestamp;
                 let d_in_sec = arrival_time_difference.as_secs_f64() - timestamp_difference;
-                let d_in_ms = d_in_sec * 1000.0;
+                let d_in_ms = d_in_sec.abs() * 1000.0;
 
                 self.jitter_in_ms = self.jitter_in_ms + (d_in_ms - self.jitter_in_ms) / 16.0;
                 self.jitter_history.push(self.jitter_in_ms);
