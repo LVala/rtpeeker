@@ -15,14 +15,16 @@ type Result<T> = result::Result<T, Error>;
 pub struct Sniffer<T: pcap::State> {
     packet_id: usize,
     capture: pcap::Capture<T>,
+    pub source: String,
 }
 
 impl Sniffer<pcap::Offline> {
-    pub fn from_file(file: &str) -> Result<Self> {
-        match pcap::Capture::from_file(file) {
+    pub fn from_file(file_path: &str, filename: &str) -> Result<Self> {
+        match pcap::Capture::from_file(file_path) {
             Ok(capture) => Ok(Self {
                 packet_id: 0,
                 capture,
+                source: filename.to_string(),
             }),
             Err(_) => Err(Error::FileNotFound),
         }
@@ -39,6 +41,7 @@ impl Sniffer<pcap::Active> {
             Ok(capture) => Ok(Self {
                 packet_id: 0,
                 capture,
+                source: device.to_string(),
             }),
             Err(_) => Err(Error::DeviceUnavailable),
         }

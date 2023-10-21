@@ -1,7 +1,9 @@
 use crate::server;
 use crate::sniffer::Sniffer;
 use clap::Args;
-use std::net::SocketAddr;
+use pcap::{Active, Offline};
+use std::collections::HashMap;
+use std::fs;
 
 const DEFAULT_PORT: &str = "3550";
 const DEFAULT_IP: &str = "0.0.0.0";
@@ -32,28 +34,47 @@ impl Run {
             return;
         };
 
-        if self.file {
-            analyze_file(self.input, address).await
-        } else {
-            capture_packets(self.input, address).await
-        }
+        let file_sniffers: HashMap<String, Sniffer<Offline>> = get_offline_sniffers();
+        let interface_sniffers: HashMap<String, Sniffer<Active>> =
+            get_online_sniffers(self.input.clone());
+
+        server::run(
+            self.input.clone(),
+            interface_sniffers,
+            file_sniffers,
+            address,
+        )
+        .await;
     }
 }
 
-async fn analyze_file(file: String, address: SocketAddr) {
-    let Ok(sniffer) = Sniffer::from_file(&file) else {
-        println!("Error:cannot open the file");
-        return;
-    };
+fn get_offline_sniffers() -> HashMap<String, Sniffer<Offline>> {
+    let mut hash_map = HashMap::new();
+    fs::read_dir("pcap_examples")
+        .unwrap()
+        .map(|path| String::from(path.unwrap().file_name().to_str().unwrap()))
+        .for_each(|filename| {
+            let file_path = format!("pcap_examples/{}", filename);
 
-    server::run(sniffer, address).await;
+            let Ok(sniffer) = Sniffer::from_file(file_path.as_str(), filename.as_str()) else {
+                println!("Error:cannot open the file");
+                return;
+            };
+
+            hash_map.insert(filename, sniffer);
+        });
+
+    hash_map
 }
 
-async fn capture_packets(interface: String, address: SocketAddr) {
-    let Ok(sniffer) = Sniffer::from_device(&interface) else {
-        println!("Error: cannot open the network interface");
-        return;
-    };
+fn get_online_sniffers(device: String) -> HashMap<String, Sniffer<Active>> {
+    let mut hash_map = HashMap::new();
 
-    server::run(sniffer, address).await;
+    let Ok(sniffer) = Sniffer::from_device(device.as_str()) else {
+        println!("Error:cannot open the file");
+        return hash_map;
+    };
+    hash_map.insert(device, sniffer);
+
+    hash_map
 }

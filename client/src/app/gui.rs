@@ -1,9 +1,10 @@
 use std::fmt;
 
 use eframe::egui;
+use egui::{ComboBox, Ui};
 use ewebsock::{WsEvent, WsMessage, WsReceiver, WsSender};
 use log::{error, warn};
-use rtpeeker_common::{Packet, Request};
+use rtpeeker_common::{Request, Response};
 
 use packets_table::PacketsTable;
 use rtp_packets_table::RtpPacketsTable;
@@ -56,6 +57,7 @@ pub struct Gui {
     // some kind of sparse vector would be the best
     // but this will do
     streams: RefStreams,
+    pcap_examples: Vec<String>,
     tab: Tab,
     // would rather keep this in `Tab` enum
     // but it proved to be inconvinient
@@ -63,6 +65,7 @@ pub struct Gui {
     rtp_packets_table: RtpPacketsTable,
     rtp_streams_table: RtpStreamsTable,
     rtp_streams_plot: RtpStreamsPlot,
+    selected_source: String,
 }
 
 impl Gui {
@@ -78,11 +81,13 @@ impl Gui {
             ws_receiver,
             is_capturing: true,
             streams,
+            pcap_examples: Vec::new(),
             tab: Tab::Packets,
             packets_table,
             rtp_packets_table,
             rtp_streams_table,
             rtp_streams_plot,
+            selected_source: String::new(),
         }
     }
 
@@ -140,7 +145,7 @@ impl Gui {
                         .add(button)
                         .on_hover_text("Discard previously captured packets");
                     if resp.clicked() {
-                        self.streams.borrow_mut().clear();
+                        self.streams.borrow_mut().clear_all_packets();
                     }
 
                     let button = side_button("↻");
@@ -148,7 +153,7 @@ impl Gui {
                         .add(button)
                         .on_hover_text("Refetch all previously captured packets");
                     if resp.clicked() {
-                        self.streams.borrow_mut().clear();
+                        self.streams.borrow_mut().clear_all_packets();
                         self.refetch_packets()
                     }
                 });
@@ -160,10 +165,10 @@ impl Gui {
                 });
             });
     }
-
     fn build_top_bar(&mut self, ctx: &egui::Context) {
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
+                self.build_dropdown_source(ui);
                 Tab::all().iter().for_each(|tab| {
                     if ui
                         .selectable_label(*tab == self.tab, tab.to_string())
@@ -174,6 +179,37 @@ impl Gui {
                 });
             });
         });
+    }
+
+    fn build_dropdown_source(&mut self, ui: &mut Ui) {
+        ComboBox::from_label("")
+            .selected_text(self.selected_source.clone())
+            .show_ui(ui, |ui| {
+                for source in &self.pcap_examples {
+                    let resp = ui.selectable_value(
+                        &mut self.selected_source,
+                        source.to_string(),
+                        source.to_string(),
+                    );
+                    if resp.clicked() {
+                        self.streams.borrow_mut().clear_all_packets();
+                        Self::change_source_request(
+                            self.selected_source.clone(),
+                            &mut self.ws_sender,
+                        );
+                    }
+                }
+            });
+    }
+
+    fn change_source_request(selected_source: String, ws_sender: &mut WsSender) {
+        let request = Request::ChangeSource(selected_source.to_string());
+        let Ok(msg) = request.encode() else {
+            log::error!("Failed to encode a request message");
+            return;
+        };
+        let msg = WsMessage::Binary(msg);
+        ws_sender.send(msg);
     }
 
     fn build_bottom_bar(&self, ctx: &egui::Context) {
@@ -207,13 +243,21 @@ impl Gui {
                 continue;
             };
 
-            let Ok(packet) = Packet::decode(&msg) else {
-                warn!("Failed to decode message: {:?}", msg);
+            let Ok(response) = Response::decode(&msg) else {
+                error!("Failed to decode request message");
                 continue;
             };
 
-            // this also adds the packet to self.packets
-            self.streams.borrow_mut().add_packet(packet);
+            match response {
+                Response::Packet(packet) => {
+                    // this also adds the packet to self.packets
+                    self.streams.borrow_mut().add_packet(packet);
+                }
+                Response::PcapExamples((files, default_source)) => {
+                    self.pcap_examples = files;
+                    self.selected_source = default_source;
+                }
+            }
         }
     }
 

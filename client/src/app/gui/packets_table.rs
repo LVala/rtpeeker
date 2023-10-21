@@ -77,7 +77,7 @@ impl PacketsTable {
 
     fn build_table_body(&mut self, body: TableBody) {
         let mut requests = Vec::new();
-        let streams = self.streams.borrow();
+        let streams = self.streams.borrow_mut();
         let packets = &streams.packets;
 
         body.rows(25.0, packets.len(), |id, mut row| {
@@ -118,7 +118,7 @@ impl PacketsTable {
         std::mem::drop(streams);
         requests
             .iter()
-            .for_each(|req| self.send_parse_request(*req));
+            .for_each(|req| self.send_parse_request(req.clone()));
     }
 
     fn build_parse_menu(&self, ui: &mut egui::Ui, packet: &Packet) -> Option<Request> {
