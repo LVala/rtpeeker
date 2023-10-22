@@ -212,7 +212,13 @@ fn build_stream_points(
             settings_x_axis,
         );
 
-        points_data.push((x, y, on_hover, get_color(rtp_packet), get_radius()));
+        points_data.push((
+            x,
+            y,
+            on_hover,
+            get_color(rtp_packet),
+            get_radius(rtp_packet),
+        ));
         points_xy.push((x, y));
     });
 }
@@ -266,10 +272,13 @@ fn build_on_hover_text(
         "Source: {}\nDestination: {}\n",
         packet.source_addr, packet.destination_addr
     ));
+    if rtp_packet.previous_packet_is_lost {
+        on_hover.push_str("\n***Previous packet is lost!***\n")
+    }
     on_hover.push('\n');
     on_hover.push_str(&rtp_packet.payload_type.to_string());
     on_hover.push('\n');
-    let additional_info = if rtp_packet.marker {
+    let marker_info = if rtp_packet.marker {
         match rtp_packet.payload_type.media_type {
             MediaType::Audio => {
                 "For audio payload type, marker says that it is first packet after silence.\n"
@@ -285,17 +294,23 @@ fn build_on_hover_text(
     } else {
         "".as_str()
     };
-    on_hover.push_str(additional_info);
+    on_hover.push_str(marker_info);
     on_hover.push_str(&format!("x = {} [{}]\n", x, settings_x_axis));
     on_hover
 }
 
-fn get_radius() -> f32 {
-    1.5
+fn get_radius(rtp_packet: &RtpPacket) -> f32 {
+    if rtp_packet.previous_packet_is_lost {
+        2.5
+    } else {
+        1.5
+    }
 }
 
 fn get_color(rtp_packet: &RtpPacket) -> Color32 {
-    if rtp_packet.marker {
+    if rtp_packet.previous_packet_is_lost {
+        Color32::GOLD
+    } else if rtp_packet.marker {
         Color32::GREEN
     } else {
         Color32::RED

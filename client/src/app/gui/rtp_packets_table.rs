@@ -1,3 +1,5 @@
+use eframe::epaint::Color32;
+use egui::RichText;
 use egui_extras::{Column, TableBody, TableBuilder};
 use rtpeeker_common::packet::SessionPacket;
 use std::collections::HashMap;
@@ -133,14 +135,14 @@ impl RtpPacketsTable {
             });
 
             row.col(|ui| {
-                ui.label(rtp_packet.padding.to_string());
+                ui.label(format_boolean(rtp_packet.padding));
             });
             row.col(|ui| {
-                ui.label(rtp_packet.extension.to_string());
+                ui.label(format_boolean(rtp_packet.extension));
             });
 
             row.col(|ui| {
-                ui.label(rtp_packet.marker.to_string());
+                ui.label(format_boolean(rtp_packet.marker));
             });
 
             let payload_type = &rtp_packet.payload_type;
@@ -151,7 +153,17 @@ impl RtpPacketsTable {
             resp.on_hover_text(rtp_packet.payload_type.to_string());
 
             row.col(|ui| {
-                ui.label(rtp_packet.sequence_number.to_string());
+                if rtp_packet.previous_packet_is_lost {
+                    let resp = ui.label(
+                        RichText::from(format!("{} ⚠", rtp_packet.sequence_number))
+                            .color(Color32::GOLD),
+                    );
+                    resp.on_hover_text(
+                        RichText::from("Previous packet is lost!").color(Color32::GOLD),
+                    );
+                } else {
+                    ui.label(rtp_packet.sequence_number.to_string());
+                }
             });
 
             row.col(|ui| {
@@ -171,22 +183,36 @@ impl RtpPacketsTable {
             });
 
             row.col(|ui| {
-                if !rtp_packet.csrc.is_empty() {
-                    let formatted_csrc = rtp_packet
-                        .csrc
-                        .iter()
-                        .map(|num| num.to_string())
-                        .collect::<Vec<String>>()
-                        .join("\n");
-
-                    ui.label(format!("{:?}, ...", rtp_packet.csrc.first().unwrap()))
-                        .on_hover_text(formatted_csrc);
+                if rtp_packet.csrc.len() <= 1 {
+                    let Some(csrc) = rtp_packet.csrc.first() else {
+                        return;
+                    };
+                    ui.label(csrc.to_string());
+                    return;
                 }
+
+                let formatted_csrc = rtp_packet
+                    .csrc
+                    .iter()
+                    .map(|num| num.to_string())
+                    .collect::<Vec<String>>()
+                    .join("\n");
+
+                ui.label(format!("{:?}, ...", rtp_packet.csrc.first().unwrap()))
+                    .on_hover_text(formatted_csrc);
             });
 
             row.col(|ui| {
                 ui.label(rtp_packet.payload_length.to_string());
             });
         });
+    }
+}
+
+fn format_boolean(value: bool) -> RichText {
+    if value {
+        RichText::from("✔").color(Color32::GREEN)
+    } else {
+        RichText::from("❌").color(Color32::RED)
     }
 }

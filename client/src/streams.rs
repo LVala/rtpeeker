@@ -1,6 +1,6 @@
 use packets::Packets;
 use rtpeeker_common::packet::SessionPacket;
-use rtpeeker_common::Packet;
+use rtpeeker_common::{Packet, RtpPacket};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -23,10 +23,12 @@ impl Streams {
         self.streams.clear();
     }
 
-    pub fn add_packet(&mut self, packet: Packet) {
+    pub fn add_packet(&mut self, mut packet: Packet) {
         let is_new = self.packets.is_new(&packet);
 
         if is_new {
+            // TODO: this can fail and going over 10 packets for new packet seems inefficient
+            self.detect_previous_packet_lost(&mut packet);
             handle_packet(&mut self.streams, &packet);
             self.packets.add_packet(packet);
         } else {
@@ -36,6 +38,51 @@ impl Streams {
             // this can be optimised if it proves to be to slow
             self.packets.add_packet(packet);
             self.recalculate();
+        }
+    }
+
+    fn detect_previous_packet_lost(&mut self, packet: &mut Packet) {
+        if let SessionPacket::Rtp(ref mut new_rtp) = packet.contents {
+            self.update_subsequent_packet(new_rtp);
+            if !self.previous_packet_present(new_rtp) {
+                new_rtp.previous_packet_is_lost = true
+            }
+        };
+    }
+
+    fn update_subsequent_packet(&mut self, new_rtp: &mut RtpPacket) {
+        if let Some(stream) = self.streams.get_mut(&new_rtp.ssrc) {
+            stream
+                .rtp_packets
+                .iter()
+                .rev()
+                .take(10)
+                .for_each(|rtp_pack_id| {
+                    let rtp_packet = self.packets.get_mut(*rtp_pack_id).unwrap();
+                    let SessionPacket::Rtp(ref mut rtp) = rtp_packet.contents else {
+                        unreachable!();
+                    };
+
+                    if rtp.sequence_number == new_rtp.sequence_number + 1 {
+                        rtp.previous_packet_is_lost = false
+                    }
+                });
+        }
+    }
+
+    fn previous_packet_present(&mut self, new_rtp: &mut RtpPacket) -> bool {
+        if let Some(stream) = self.streams.get(&new_rtp.ssrc) {
+            stream.rtp_packets.iter().rev().take(10).any(|rtp_pack_id| {
+                let rtp_packet = self.packets.get(*rtp_pack_id).unwrap();
+                let SessionPacket::Rtp(ref rtp) = rtp_packet.contents else {
+                    unreachable!();
+                };
+
+                rtp.sequence_number == new_rtp.sequence_number - 1
+            })
+        } else {
+            // stream not present - it is first packet
+            true
         }
     }
 
