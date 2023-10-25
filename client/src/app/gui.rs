@@ -145,7 +145,7 @@ impl Gui {
                         .add(button)
                         .on_hover_text("Discard previously captured packets");
                     if resp.clicked() {
-                        self.streams.borrow_mut().clear_all_packets();
+                        self.streams.borrow_mut().clear();
                     }
 
                     let button = side_button("↻");
@@ -153,7 +153,7 @@ impl Gui {
                         .add(button)
                         .on_hover_text("Refetch all previously captured packets");
                     if resp.clicked() {
-                        self.streams.borrow_mut().clear_all_packets();
+                        self.streams.borrow_mut().clear();
                         self.refetch_packets()
                     }
                 });
@@ -192,7 +192,7 @@ impl Gui {
                         source.to_string(),
                     );
                     if resp.clicked() {
-                        self.streams.borrow_mut().clear_all_packets();
+                        self.streams.borrow_mut().clear();
                         Self::change_source_request(
                             self.selected_source.clone(),
                             &mut self.ws_sender,

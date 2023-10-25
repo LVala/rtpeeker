@@ -18,7 +18,7 @@ pub struct Streams {
 }
 
 impl Streams {
-    pub fn clear_all_packets(&mut self) {
+    pub fn clear(&mut self) {
         self.packets.clear();
         self.streams.clear();
     }

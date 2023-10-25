@@ -26,7 +26,6 @@ type ClientsSource = Arc<RwLock<HashMap<usize, String>>>;
 type Packets = Arc<RwLock<Vec<Response>>>;
 
 pub async fn run(
-    default_source: String,
     interface_sniffers: HashMap<String, Sniffer<Active>>,
     file_sniffers: HashMap<String, Sniffer<Offline>>,
     addr: SocketAddr,

@@ -19,12 +19,12 @@ pub struct Sniffer<T: pcap::State> {
 }
 
 impl Sniffer<pcap::Offline> {
-    pub fn from_file(file_path: &str, filename: &str) -> Result<Self> {
-        match pcap::Capture::from_file(file_path) {
+    pub fn from_file(file: &str) -> Result<Self> {
+        match pcap::Capture::from_file(file) {
             Ok(capture) => Ok(Self {
                 packet_id: 0,
                 capture,
-                source: filename.to_string(),
+                source: file.to_string(),
             }),
             Err(_) => Err(Error::FileNotFound),
         }
