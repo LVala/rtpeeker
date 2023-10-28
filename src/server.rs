@@ -143,8 +143,9 @@ async fn sniff<T: pcap::Activated>(mut sniffer: Sniffer<T>, packets: Packets, cl
         match result {
             Ok(mut pack) => {
                 pack.guess_payload();
-                // TODO: why not in Response::Packet(Packet)?
-                let Ok(encoded) = pack.encode() else {
+                let response = Response::Packet(pack);
+
+                let Ok(encoded) = response.encode() else {
                     error!("Sniffer: failed to encode packet");
                     continue;
                 };
@@ -162,7 +163,7 @@ async fn sniff<T: pcap::Activated>(mut sniffer: Sniffer<T>, packets: Packets, cl
                         _ => {}
                     }
                 }
-                packets.write().await.push(Response::Packet(pack));
+                packets.write().await.push(response);
             }
             Err(err) => error!("Error when capturing a packet: {:?}", err),
         }
@@ -268,7 +269,7 @@ async fn handle_messages(
                     }
                     Request::Reparse(id, packet_type) => {
                         // TODO: maybe the message should include the source?
-                        // I see a potential for a RC
+                        // I see a potential for an RC
                         if let Some(ref cur_source) = source {
                             let packets = packets.get(cur_source).unwrap();
                             reparse_packet(

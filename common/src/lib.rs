@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 pub use crate::rtcp::RtcpPacket;
 pub use crate::rtp::RtpPacket;
@@ -12,6 +13,17 @@ pub mod rtp;
 pub enum Source {
     File(String),
     Interface(String),
+}
+
+impl fmt::Display for Source {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let (icon, name) = match self {
+            Self::File(file) => ("📁", file),
+            Self::Interface(interface) => ("🌐", interface),
+        };
+
+        write!(f, "{} {}", icon, name)
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
