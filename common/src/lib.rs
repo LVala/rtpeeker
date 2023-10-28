@@ -8,17 +8,23 @@ pub mod packet;
 pub mod rtcp;
 pub mod rtp;
 
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, Eq, PartialEq)]
+pub enum Source {
+    File(String),
+    Interface(String),
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum Request {
     FetchAll,
     Reparse(usize, packet::SessionProtocol),
-    ChangeSource(String),
+    ChangeSource(Source),
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Response {
     Packet(Packet),
-    PcapExamples((Vec<String>, String)),
+    Sources(Vec<Source>),
 }
 
 impl Request {

@@ -1,4 +1,4 @@
-use rtpeeker_common::Packet;
+use rtpeeker_common::{Packet, Source};
 use std::result;
 
 #[derive(Debug)]
@@ -15,7 +15,7 @@ type Result<T> = result::Result<T, Error>;
 pub struct Sniffer<T: pcap::State> {
     packet_id: usize,
     capture: pcap::Capture<T>,
-    pub source: String,
+    pub source: Source,
 }
 
 impl Sniffer<pcap::Offline> {
@@ -24,7 +24,7 @@ impl Sniffer<pcap::Offline> {
             Ok(capture) => Ok(Self {
                 packet_id: 0,
                 capture,
-                source: file.to_string(),
+                source: Source::File(file.to_string()),
             }),
             Err(_) => Err(Error::FileNotFound),
         }
@@ -41,7 +41,7 @@ impl Sniffer<pcap::Active> {
             Ok(capture) => Ok(Self {
                 packet_id: 0,
                 capture,
-                source: device.to_string(),
+                source: Source::Interface(device.to_string()),
             }),
             Err(_) => Err(Error::DeviceUnavailable),
         }
