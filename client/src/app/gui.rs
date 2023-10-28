@@ -82,12 +82,12 @@ impl Gui {
             is_capturing: true,
             streams,
             sources: Vec::new(),
+            selected_source: None,
             tab: Tab::Packets,
             packets_table,
             rtp_packets_table,
             rtp_streams_table,
             rtp_streams_plot,
-            selected_source: None,
         }
     }
 

@@ -77,7 +77,7 @@ impl PacketsTable {
 
     fn build_table_body(&mut self, body: TableBody) {
         let mut requests = Vec::new();
-        let streams = self.streams.borrow_mut();
+        let streams = self.streams.borrow();
         let packets = &streams.packets;
 
         body.rows(25.0, packets.len(), |id, mut row| {
