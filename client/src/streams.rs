@@ -27,6 +27,7 @@ impl Streams {
         let is_new = self.packets.is_new(&packet);
 
         if is_new {
+            // TODO: this can fail and going over 10 packets for new packet seems inefficient
             self.detect_previous_packet_lost(&mut packet);
             handle_packet(&mut self.streams, &packet);
             self.packets.add_packet(packet);
