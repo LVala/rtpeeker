@@ -1,58 +1,92 @@
+use crate::sniffer::Sniffer;
+use futures_util::{stream::SplitStream, SinkExt, StreamExt, TryFutureExt};
+use log::{error, info, warn};
+use rtpeeker_common::packet::SessionProtocol;
+use rtpeeker_common::Source;
+use rtpeeker_common::{Request, Response};
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc,
 };
-
-use futures_util::{stream::SplitStream, SinkExt, StreamExt, TryFutureExt};
-use log::{error, info, warn};
 use tokio::sync::{mpsc, mpsc::UnboundedSender, RwLock};
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use warp::ws::{Message, WebSocket};
 use warp::Filter;
 
-use rtpeeker_common::packet::SessionProtocol;
-use rtpeeker_common::{Packet, Request};
-
-use crate::sniffer::Sniffer;
-
 const DIST_DIR: &str = "client/dist";
 const WS_PATH: &str = "ws";
 static NEXT_CLIENT_ID: AtomicUsize = AtomicUsize::new(1);
 
-type Clients = Arc<RwLock<HashMap<usize, mpsc::UnboundedSender<Message>>>>;
-type Packets = Arc<RwLock<Vec<Packet>>>;
+struct Client {
+    pub sender: mpsc::UnboundedSender<Message>,
+    pub source: Option<Source>,
+}
 
-pub async fn run<T: pcap::Activated + 'static>(sniffer: Sniffer<T>, addr: SocketAddr) {
-    let packets = Packets::default();
+impl Client {
+    pub fn new(sender: mpsc::UnboundedSender<Message>) -> Self {
+        Self {
+            sender,
+            source: None,
+        }
+    }
+}
+
+type Clients = Arc<RwLock<HashMap<usize, Client>>>;
+type Packets = Arc<RwLock<Vec<Response>>>;
+type PacketsMap = Arc<HashMap<Source, Packets>>;
+
+pub async fn run(
+    interface_sniffers: HashMap<String, Sniffer<pcap::Active>>,
+    file_sniffers: HashMap<String, Sniffer<pcap::Offline>>,
+    addr: SocketAddr,
+) {
     let clients = Clients::default();
+    let mut source_to_packets = HashMap::new();
 
-    let clients_sniff = clients.clone();
-    let packets_sniff = packets.clone();
+    // a bit of repetition, but Rust bested me this time
+    for (file, sniffer) in file_sniffers {
+        let packets = Packets::default();
+        let source = Source::File(file);
+        source_to_packets.insert(source, packets.clone());
 
-    tokio::task::spawn(async move {
-        sniff(sniffer, packets_sniff, clients_sniff).await;
-    });
+        let cloned_clients = clients.clone();
+        tokio::task::spawn(async move {
+            sniff(sniffer, packets, cloned_clients).await;
+        });
+    }
 
-    let packets_filter = warp::any().map(move || packets.clone());
+    for (interface, sniffer) in interface_sniffers {
+        let packets = Packets::default();
+        let source = Source::Interface(interface);
+        source_to_packets.insert(source, packets.clone());
+
+        let cloned_clients = clients.clone();
+        tokio::task::spawn(async move {
+            sniff(sniffer, packets, cloned_clients).await;
+        });
+    }
+
+    let source_to_packets = Arc::new(source_to_packets);
+
     let clients_filter = warp::any().map(move || clients.clone());
+    let source_to_packets_filter = warp::any().map(move || source_to_packets.clone());
     let ws = warp::path(WS_PATH)
         .and(warp::ws())
-        .and(packets_filter)
         .and(clients_filter)
-        .map(|ws: warp::ws::Ws, packets, clients| {
-            ws.on_upgrade(move |socket| client_connected(socket, packets, clients))
+        .and(source_to_packets_filter)
+        .map(|ws: warp::ws::Ws, clients_cl, source_to_packets_cl| {
+            ws.on_upgrade(move |socket| client_connected(socket, clients_cl, source_to_packets_cl))
         });
 
     let routes = ws.or(warp::fs::dir(DIST_DIR));
-
     println!("RTPeeker running on http://{}/", addr);
 
     warp::serve(routes).run(addr).await;
 }
 
-async fn client_connected(ws: WebSocket, packets: Packets, clients: Clients) {
+async fn client_connected(ws: WebSocket, clients: Clients, source_to_packets: PacketsMap) {
     let client_id = NEXT_CLIENT_ID.fetch_add(1, Ordering::Relaxed);
 
     info!("New client connected, assigned id: {}", client_id);
@@ -64,7 +98,7 @@ async fn client_connected(ws: WebSocket, packets: Packets, clients: Clients) {
     let (mut tx, rx) = mpsc::unbounded_channel();
     let mut rx = UnboundedReceiverStream::new(rx);
 
-    send_all_packets(&packets, &mut tx, client_id).await;
+    send_pcap_filenames(&client_id, &mut tx, &source_to_packets).await;
 
     tokio::task::spawn(async move {
         while let Some(message) = rx.next().await {
@@ -77,13 +111,31 @@ async fn client_connected(ws: WebSocket, packets: Packets, clients: Clients) {
         }
     });
 
-    let clients_tx = tx.clone();
-    clients.write().await.insert(client_id, clients_tx);
+    clients.write().await.insert(client_id, Client::new(tx));
 
-    handle_messages(ws_rx, tx, &packets, &clients, client_id).await;
+    handle_messages(client_id, ws_rx, &clients, &source_to_packets).await;
 
     info!("Client disconnected, client_id: {}", client_id);
     clients.write().await.remove(&client_id);
+}
+
+async fn send_pcap_filenames(
+    client_id: &usize,
+    ws_tx: &mut UnboundedSender<Message>,
+    source_to_packets: &Arc<HashMap<Source, Packets>>,
+) {
+    let sources = source_to_packets.keys().cloned().collect();
+    let response = Response::Sources(sources);
+
+    let Ok(encoded) = response.encode() else {
+        error!("Failed to encode packet, client_id: {}", client_id);
+        return;
+    };
+
+    let msg = Message::binary(encoded);
+    ws_tx.send(msg).unwrap_or_else(|e| {
+        error!("WebSocket send error: {}, client_id: {}", e, client_id);
+    });
 }
 
 async fn sniff<T: pcap::Activated>(mut sniffer: Sniffer<T>, packets: Packets, clients: Clients) {
@@ -91,17 +143,27 @@ async fn sniff<T: pcap::Activated>(mut sniffer: Sniffer<T>, packets: Packets, cl
         match result {
             Ok(mut pack) => {
                 pack.guess_payload();
-                let Ok(encoded) = pack.encode() else {
+                let response = Response::Packet(pack);
+
+                let Ok(encoded) = response.encode() else {
                     error!("Sniffer: failed to encode packet");
                     continue;
                 };
                 let msg = Message::binary(encoded);
-                for (_, tx) in clients.read().await.iter() {
-                    tx.send(msg.clone()).unwrap_or_else(|e| {
-                        error!("Sniffer: error while sending packet: {}", e);
-                    })
+                for (_, client) in clients.read().await.iter() {
+                    match client {
+                        Client {
+                            source: Some(source),
+                            sender,
+                        } if *source == sniffer.source => {
+                            sender.send(msg.clone()).unwrap_or_else(|e| {
+                                error!("Sniffer: error while sending packet: {}", e);
+                            })
+                        }
+                        _ => {}
+                    }
                 }
-                packets.write().await.push(pack);
+                packets.write().await.push(response);
             }
             Err(err) => error!("Error when capturing a packet: {:?}", err),
         }
@@ -109,9 +171,9 @@ async fn sniff<T: pcap::Activated>(mut sniffer: Sniffer<T>, packets: Packets, cl
 }
 
 async fn send_all_packets(
+    client_id: usize,
     packets: &Packets,
     ws_tx: &mut UnboundedSender<Message>,
-    client_id: usize,
 ) {
     for pack in packets.read().await.iter() {
         let Ok(encoded) = pack.encode() else {
@@ -131,41 +193,59 @@ async fn send_all_packets(
 }
 
 async fn reparse_packet(
+    client_id: usize,
     packets: &Packets,
     clients: &Clients,
-    client_id: usize,
     id: usize,
+    cur_source: &Source,
     packet_type: SessionProtocol,
 ) {
     let mut packets = packets.write().await;
-    let Some(packet) = packets.get_mut(id) else {
+    let Some(response_packet) = packets.get_mut(id) else {
         warn!(
             "Received reparse request for non-existent packet {}, client_id: {}",
             id, client_id
         );
         return;
     };
+
+    let Response::Packet(packet) = response_packet else {
+        unreachable!("");
+    };
     packet.parse_as(packet_type);
 
-    let Ok(encoded) = packet.encode() else {
+    let Ok(encoded) = response_packet.encode() else {
         error!("Failed to encode packet, client_id: {}", client_id);
         return;
     };
     let msg = Message::binary(encoded);
-    for (_, tx) in clients.read().await.iter() {
-        tx.send(msg.clone()).unwrap_or_else(|e| {
-            error!("Sniffer: error while sending packet: {}", e);
-        })
+    for (_, client) in clients.read().await.iter() {
+        match client {
+            Client {
+                source: Some(source),
+                sender,
+            } if *source == *cur_source => sender.send(msg.clone()).unwrap_or_else(|e| {
+                error!("Sniffer: error while sending packet: {}", e);
+            }),
+            _ => {}
+        }
     }
 }
 
 async fn handle_messages(
-    mut ws_rx: SplitStream<WebSocket>,
-    mut tx: UnboundedSender<Message>,
-    packets: &Packets,
-    clients: &Clients,
     client_id: usize,
+    mut ws_rx: SplitStream<WebSocket>,
+    clients: &Clients,
+    packets: &PacketsMap,
 ) {
+    // we could also simply pass the tx and source as function arguments
+    // but it doesn't really matter
+    let rd_clients = clients.read().await;
+    let client = rd_clients.get(&client_id).unwrap();
+    let mut source = client.source.clone();
+    let mut sender = client.sender.clone();
+    std::mem::drop(rd_clients);
+
     while let Some(result) = ws_rx.next().await {
         match result {
             Ok(msg) => {
@@ -182,10 +262,39 @@ async fn handle_messages(
 
                 match req {
                     Request::FetchAll => {
-                        send_all_packets(packets, &mut tx, client_id).await;
+                        if let Some(ref cur_source) = source {
+                            let packets = packets.get(cur_source).unwrap();
+                            send_all_packets(client_id, packets, &mut sender).await;
+                        }
                     }
                     Request::Reparse(id, packet_type) => {
-                        reparse_packet(packets, clients, client_id, id, packet_type).await;
+                        // TODO: maybe the message should include the source?
+                        // I see a potential for an RC
+                        if let Some(ref cur_source) = source {
+                            let packets = packets.get(cur_source).unwrap();
+                            reparse_packet(
+                                client_id,
+                                packets,
+                                clients,
+                                id,
+                                cur_source,
+                                packet_type,
+                            )
+                            .await;
+                        } else {
+                            error!("Received reparse request from client without selected source, client_id: {}", client_id);
+                        }
+                    }
+                    Request::ChangeSource(new_source) => {
+                        let packets = packets.get(&new_source).unwrap();
+
+                        source = Some(new_source);
+                        let mut wr_clients = clients.write().await;
+                        let client = wr_clients.get_mut(&client_id).unwrap();
+                        client.source = source.clone();
+                        std::mem::drop(wr_clients);
+
+                        send_all_packets(client_id, packets, &mut sender).await;
                     }
                 };
             }

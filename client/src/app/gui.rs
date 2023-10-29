@@ -1,9 +1,10 @@
 use std::fmt;
 
 use eframe::egui;
+use egui::{ComboBox, Ui};
 use ewebsock::{WsEvent, WsMessage, WsReceiver, WsSender};
 use log::{error, warn};
-use rtpeeker_common::{Packet, Request};
+use rtpeeker_common::{Request, Response, Source};
 
 use packets_table::PacketsTable;
 use rtp_packets_table::RtpPacketsTable;
@@ -56,6 +57,8 @@ pub struct Gui {
     // some kind of sparse vector would be the best
     // but this will do
     streams: RefStreams,
+    sources: Vec<Source>,
+    selected_source: Option<Source>,
     tab: Tab,
     // would rather keep this in `Tab` enum
     // but it proved to be inconvinient
@@ -78,6 +81,8 @@ impl Gui {
             ws_receiver,
             is_capturing: true,
             streams,
+            sources: Vec::new(),
+            selected_source: None,
             tab: Tab::Packets,
             packets_table,
             rtp_packets_table,
@@ -160,10 +165,11 @@ impl Gui {
                 });
             });
     }
-
     fn build_top_bar(&mut self, ctx: &egui::Context) {
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
+                self.build_dropdown_source(ui);
+                ui.separator();
                 Tab::all().iter().for_each(|tab| {
                     if ui
                         .selectable_label(*tab == self.tab, tab.to_string())
@@ -174,6 +180,37 @@ impl Gui {
                 });
             });
         });
+    }
+
+    fn build_dropdown_source(&mut self, ui: &mut Ui) {
+        let selected = match self.selected_source {
+            Some(ref source) => source.to_string(),
+            None => "Select packets source...".to_string(),
+        };
+
+        ComboBox::from_id_source("source_picker")
+            .width(300.0)
+            .wrap(false)
+            .selected_text(selected)
+            .show_ui(ui, |ui| {
+                let mut was_changed = false;
+
+                for source in self.sources.iter() {
+                    let resp = ui.selectable_value(
+                        &mut self.selected_source,
+                        Some(source.clone()),
+                        source.to_string(),
+                    );
+                    if resp.clicked() {
+                        was_changed = true;
+                    }
+                }
+
+                if was_changed {
+                    self.streams.borrow_mut().clear();
+                    self.change_source_request();
+                }
+            });
     }
 
     fn build_bottom_bar(&self, ctx: &egui::Context) {
@@ -207,13 +244,20 @@ impl Gui {
                 continue;
             };
 
-            let Ok(packet) = Packet::decode(&msg) else {
-                warn!("Failed to decode message: {:?}", msg);
+            let Ok(response) = Response::decode(&msg) else {
+                error!("Failed to decode request message");
                 continue;
             };
 
-            // this also adds the packet to self.packets
-            self.streams.borrow_mut().add_packet(packet);
+            match response {
+                Response::Packet(packet) => {
+                    // this also adds the packet to self.packets
+                    self.streams.borrow_mut().add_packet(packet);
+                }
+                Response::Sources(sources) => {
+                    self.sources = sources;
+                }
+            }
         }
     }
 
@@ -225,6 +269,17 @@ impl Gui {
         };
         let msg = WsMessage::Binary(msg);
 
+        self.ws_sender.send(msg);
+    }
+
+    fn change_source_request(&mut self) {
+        let selected = self.selected_source.as_ref().unwrap().clone();
+        let request = Request::ChangeSource(selected);
+        let Ok(msg) = request.encode() else {
+            log::error!("Failed to encode a request message");
+            return;
+        };
+        let msg = WsMessage::Binary(msg);
         self.ws_sender.send(msg);
     }
 }

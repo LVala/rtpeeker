@@ -118,7 +118,7 @@ impl PacketsTable {
         std::mem::drop(streams);
         requests
             .iter()
-            .for_each(|req| self.send_parse_request(*req));
+            .for_each(|req| self.send_parse_request(req.clone()));
     }
 
     fn build_parse_menu(&self, ui: &mut egui::Ui, packet: &Packet) -> Option<Request> {
