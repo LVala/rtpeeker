@@ -1,3 +1,5 @@
+use self::SettingsXAxis::*;
+use crate::streams::{is_stream_visible, RefStreams, Streams};
 use eframe::egui;
 use eframe::egui::TextBuffer;
 use eframe::epaint::Color32;
@@ -9,10 +11,6 @@ use rtpeeker_common::{Packet, RtpPacket};
 use std::cell::Ref;
 use std::collections::HashMap;
 use std::fmt::{Display, Error, Formatter};
-
-use crate::streams::{is_stream_visible, RefStreams, Streams};
-
-use self::SettingsXAxis::*;
 
 struct PointData {
     x: f64,
