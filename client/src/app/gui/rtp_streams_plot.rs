@@ -1,7 +1,3 @@
-use std::cell::Ref;
-use std::collections::HashMap;
-use std::fmt::{Display, Error, Formatter};
-
 use eframe::egui;
 use eframe::egui::TextBuffer;
 use eframe::epaint::Color32;
@@ -10,6 +6,9 @@ use egui::Ui;
 use rtpeeker_common::packet::SessionPacket;
 use rtpeeker_common::rtp::payload_type::MediaType;
 use rtpeeker_common::{Packet, RtpPacket};
+use std::cell::Ref;
+use std::collections::HashMap;
+use std::fmt::{Display, Error, Formatter};
 
 use crate::streams::{is_stream_visible, RefStreams, Streams};
 
@@ -200,6 +199,8 @@ impl RtpStreamsPlot {
     }
 }
 
+// TODO: this needs to be refactored at some point
+#[allow(clippy::too_many_arguments)]
 fn build_stream_points(
     streams: &Ref<Streams>,
     points_x_and_y_plus_height: &mut Vec<(f64, f64)>,
@@ -270,6 +271,7 @@ fn build_stream_points(
     });
 }
 
+#[allow(clippy::too_many_arguments)]
 fn get_x_and_y(
     points_x_and_y_plus_height: &mut [(f64, f64)],
     stream_ix: usize,
