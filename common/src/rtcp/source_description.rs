@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SourceDescription {
@@ -65,6 +66,26 @@ pub enum SdesType {
     Tool,
     Note,
     Private,
+}
+
+impl fmt::Display for SdesType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use SdesType::*;
+
+        let res = match self {
+            End => "END",
+            Cname => "CNAME",
+            Name => "NAME",
+            Email => "EMAIL",
+            Phone => "PHONE",
+            Location => "LOCATION",
+            Tool => "TOOL",
+            Note => "NOTE",
+            Private => "PRIVATE",
+        };
+
+        write!(f, "{}", res)
+    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
