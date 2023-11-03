@@ -115,17 +115,29 @@ impl RtcpPacketsTable {
 }
 
 fn get_row_height(packet: &RtcpPacket) -> f32 {
+    // determined empirically
     let length = match packet {
-        RtcpPacket::Goodbye(_) => 2,
+        RtcpPacket::Goodbye(_) => 2.0,
         RtcpPacket::SourceDescription(sd) => {
-            sd.chunks.iter().map(|chunk| chunk.items.len() + 1).sum()
+            sd.chunks
+                .iter()
+                .map(|chunk| chunk.items.len() + 1)
+                .max()
+                // AFAIR, 0 chunk SDES packet is possible, although useless
+                .unwrap_or(1) as f32
         }
-        RtcpPacket::ReceiverReport(rr) => 7 * rr.reports.len() + 1,
-        RtcpPacket::SenderReport(sr) => 7 * sr.reports.len() + 6,
-        _ => 1,
+        RtcpPacket::ReceiverReport(rr) => match rr.reports.len() {
+            0 => 2.7,
+            _ => 8.0,
+        },
+        RtcpPacket::SenderReport(sr) => match sr.reports.len() {
+            0 => 4.7,
+            _ => 10.0,
+        },
+        _ => 1.0,
     };
 
-    length as f32 * 17.0
+    length * 20.0
 }
 
 fn build_packet(ui: &mut Ui, packet: &RtcpPacket) {
@@ -141,44 +153,69 @@ fn build_packet(ui: &mut Ui, packet: &RtcpPacket) {
 }
 
 fn build_sender_report(ui: &mut Ui, report: &SenderReport) {
-    ui.label(format!("Source: {}", report.ssrc));
-    ui.label(format!("NTP time: {}", report.ntp_time));
-    ui.label(format!("RTP time: {}", report.rtp_time));
-    ui.label(format!("Packet count: {}", report.packet_count));
-    ui.label(format!("Octet count: {}", report.octet_count));
+    build_label(ui, "Source:", format!("{:x}", report.ssrc));
+    ui.horizontal(|ui| {
+        ui.vertical(|ui| {
+            build_label(ui, "NTP time:", report.ntp_time.to_string());
+            build_label(ui, "RTP time:", report.rtp_time.to_string());
+        });
+        ui.vertical(|ui| {
+            build_label(ui, "Packet count:", report.packet_count.to_string());
+            build_label(ui, "Octet count:", report.octet_count.to_string());
+        });
+    });
+    ui.separator();
     build_reception_reports(ui, &report.reports);
 }
 
 fn build_receiver_report(ui: &mut Ui, report: &ReceiverReport) {
-    ui.label(format!("Source: {}", report.ssrc));
+    build_label(ui, "Source:", format!("{:x}", report.ssrc));
+    ui.separator();
     build_reception_reports(ui, &report.reports);
 }
 
 fn build_reception_reports(ui: &mut Ui, reports: &Vec<ReceptionReport>) {
-    ui.label("Reports:");
-    for report in reports {
-        ui.label(format!("SSRC: {}", report.ssrc));
-        ui.label(format!("Fraction lost: {}", report.fraction_lost));
-        ui.label(format!("Cumulative lost: {}", report.total_lost));
-        ui.label(format!("Interarrival jitter: {}", report.jitter));
-        ui.label(format!("Last sr: {}", report.last_sender_report));
-        ui.label(format!("Delay last sr: {}", report.delay));
+    if reports.is_empty() {
+        let text = RichText::new("No reception reports").strong();
+        ui.label(text);
+        return;
     }
+
+    let mut first = true;
+    ui.horizontal(|ui| {
+        for report in reports {
+            if !first {
+                ui.separator();
+            } else {
+                first = false;
+            }
+            let fraction_lost = (report.fraction_lost as u32 / 256) * 10;
+            ui.vertical(|ui| {
+                build_label(ui, "SSRC:", format!("{:x}", report.ssrc));
+                build_label(ui, "Fraction lost:", format!("{}%", fraction_lost));
+                build_label(ui, "Cumulative lost:", report.total_lost.to_string());
+                build_label(ui, "Interarrival jitter:", report.jitter.to_string());
+                build_label(ui, "Last SR:", report.last_sender_report.to_string());
+                build_label(ui, "Delay since last SR:", report.delay.to_string());
+            });
+        }
+    });
 }
 
 fn build_source_description(ui: &mut Ui, desc: &SourceDescription) {
-    desc.chunks.iter().for_each(|chunk| {
-        let source_label = RichText::new("Source: ").strong();
-        ui.horizontal(|ui| {
-            ui.label(source_label);
-            ui.label(format!("{:x}", chunk.source));
-        });
-        for item in &chunk.items {
-            let type_label = RichText::new(item.sdes_type.to_string()).strong();
-            ui.horizontal(|ui| {
-                ui.label("   •");
-                ui.label(type_label);
-                ui.label(format!(" {}", item.text));
+    let mut first = true;
+    ui.horizontal(|ui| {
+        for chunk in &desc.chunks {
+            if !first {
+                ui.separator();
+            } else {
+                first = false;
+            }
+            ui.vertical(|ui| {
+                build_label(ui, "Source:", format!("{:x}", chunk.source));
+                for item in &chunk.items {
+                    build_label(ui, item.sdes_type.to_string(), item.text.clone());
+                }
             });
         }
     });
@@ -192,15 +229,14 @@ fn build_goodbye(ui: &mut Ui, bye: &Goodbye) {
         .collect::<Vec<_>>()
         .join(", ");
 
-    let label_sources = RichText::new("Sources: ").strong();
-    ui.horizontal(|ui| {
-        ui.label(label_sources);
-        ui.label(ssrcs);
-    });
+    build_label(ui, "Sources:", ssrcs);
+    build_label(ui, "Reason:", bye.reason.clone());
+}
 
-    let label_reason = RichText::new("Reason: ").strong();
+fn build_label(ui: &mut Ui, bold: impl Into<String>, normal: impl Into<String>) {
+    let source_label = RichText::new(bold.into()).strong();
     ui.horizontal(|ui| {
-        ui.label(label_reason);
-        ui.label(bye.reason.to_string());
+        ui.label(source_label);
+        ui.label(normal.into());
     });
 }
