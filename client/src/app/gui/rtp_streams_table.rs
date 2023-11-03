@@ -67,7 +67,7 @@ impl RtpStreamsTable {
             });
 
             row.col(|ui| {
-                ui.label(stream.ssrc.to_string());
+                ui.label(format!("{:x}", stream.ssrc));
             });
             row.col(|ui| {
                 ui.label(stream.source_addr.to_string());

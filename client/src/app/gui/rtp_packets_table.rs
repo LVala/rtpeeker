@@ -51,7 +51,6 @@ impl RtpPacketsTable {
             ("Time", "Packet arrival timestamp"),
             ("Source", "Source IP address and port"),
             ("Destination", "Destination IP address and port"),
-            ("Version", "RTP protocol version"),
             ("Padding", "RTP packet contains additional padding"),
             ("Extension", "RTP packet contains additional header extensions"),
             ("Marker", "RTP marker\nFor audio type it might say that it is first packet after silence\nFor video, marker might say that it is last packet of a frame"),
@@ -70,7 +69,7 @@ impl RtpPacketsTable {
             .column(Column::remainder().at_least(40.0))
             .column(Column::remainder().at_least(80.0))
             .columns(Column::remainder().at_least(130.0), 2)
-            .columns(Column::remainder().at_least(80.0), 8)
+            .columns(Column::remainder().at_least(80.0), 7)
             .column(Column::remainder().at_most(50.0))
             .columns(Column::remainder().at_least(80.0), 2)
             .header(30.0, |mut header| {
@@ -131,10 +130,6 @@ impl RtpPacketsTable {
                 ui.label(packet.destination_addr.to_string());
             });
             row.col(|ui| {
-                ui.label(rtp_packet.version.to_string());
-            });
-
-            row.col(|ui| {
                 ui.label(format_boolean(rtp_packet.padding));
             });
             row.col(|ui| {
@@ -171,7 +166,7 @@ impl RtpPacketsTable {
             });
 
             row.col(|ui| {
-                ui.label(rtp_packet.ssrc.to_string());
+                ui.label(format!("{:x}", rtp_packet.ssrc));
             });
             row.col(|ui| {
                 ui.label(
