@@ -1,10 +1,15 @@
+pub use goodbye::Goodbye;
+pub use receiver_report::ReceiverReport;
+pub use reception_report::ReceptionReport;
+pub use sender_report::SenderReport;
 use serde::{Deserialize, Serialize};
+pub use source_description::SourceDescription;
 
-mod goodbye;
-mod receiver_report;
-mod reception_report;
-mod sender_report;
-mod source_description;
+pub mod goodbye;
+pub mod receiver_report;
+pub mod reception_report;
+pub mod sender_report;
+pub mod source_description;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum RtcpPacket {
@@ -17,6 +22,24 @@ pub enum RtcpPacket {
     TransportSpecificFeedback,
     ExtendedReport,
     Other,
+}
+
+impl RtcpPacket {
+    pub fn get_type_name(&self) -> &str {
+        use RtcpPacket::*;
+
+        match self {
+            SenderReport(_) => "Sender Report",
+            ReceiverReport(_) => "Receiver Report",
+            SourceDescription(_) => "Source Description",
+            Goodbye(_) => "Goodbye",
+            ApplicationDefined => "Application Defined",
+            PayloadSpecificFeedback => "Payload-specific Feedback",
+            TransportSpecificFeedback => "Transport-specific Feedback",
+            ExtendedReport => "Extended Report",
+            Other => "Other",
+        }
+    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]

@@ -7,6 +7,7 @@ use log::{error, warn};
 use rtpeeker_common::{Request, Response, Source};
 
 use packets_table::PacketsTable;
+use rtcp_packets_table::RtcpPacketsTable;
 use rtp_packets_table::RtpPacketsTable;
 use rtp_streams_table::RtpStreamsTable;
 
@@ -14,6 +15,7 @@ use crate::streams::RefStreams;
 use rtp_streams_plot::RtpStreamsPlot;
 
 mod packets_table;
+mod rtcp_packets_table;
 mod rtp_packets_table;
 mod rtp_streams_plot;
 mod rtp_streams_table;
@@ -22,8 +24,9 @@ mod rtp_streams_table;
 enum Tab {
     Packets,
     RtpPackets,
-    RtpStreamsTable,
-    RtpStreamsPlot,
+    RtcpPackets,
+    Streams,
+    Plot,
 }
 
 impl Tab {
@@ -31,8 +34,9 @@ impl Tab {
         vec![
             Self::Packets,
             Self::RtpPackets,
-            Self::RtpStreamsTable,
-            Self::RtpStreamsPlot,
+            Self::RtcpPackets,
+            Self::Streams,
+            Self::Plot,
         ]
     }
 }
@@ -40,10 +44,11 @@ impl Tab {
 impl fmt::Display for Tab {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let ret = match self {
-            Self::Packets => "📦 Packets",
+            Self::Packets => "📦 All Packets",
             Self::RtpPackets => "🔈RTP Packets",
-            Self::RtpStreamsTable => "🔴 RTP streams",
-            Tab::RtpStreamsPlot => "📈 RTP streams plot",
+            Self::RtcpPackets => "📃 RTCP Packets",
+            Self::Streams => "🔴 Streams",
+            Self::Plot => "📈 Plot",
         };
 
         write!(f, "{}", ret)
@@ -64,6 +69,7 @@ pub struct Gui {
     // but it proved to be inconvinient
     packets_table: PacketsTable,
     rtp_packets_table: RtpPacketsTable,
+    rtcp_packets_table: RtcpPacketsTable,
     rtp_streams_table: RtpStreamsTable,
     rtp_streams_plot: RtpStreamsPlot,
 }
@@ -73,6 +79,7 @@ impl Gui {
         let streams = RefStreams::default();
         let packets_table = PacketsTable::new(streams.clone(), ws_sender.clone());
         let rtp_packets_table = RtpPacketsTable::new(streams.clone());
+        let rtcp_packets_table = RtcpPacketsTable::new(streams.clone());
         let rtp_streams_table = RtpStreamsTable::new(streams.clone());
         let rtp_streams_plot = RtpStreamsPlot::new(streams.clone());
 
@@ -86,6 +93,7 @@ impl Gui {
             tab: Tab::Packets,
             packets_table,
             rtp_packets_table,
+            rtcp_packets_table,
             rtp_streams_table,
             rtp_streams_plot,
         }
@@ -103,8 +111,9 @@ impl Gui {
         match self.tab {
             Tab::Packets => self.packets_table.ui(ctx),
             Tab::RtpPackets => self.rtp_packets_table.ui(ctx),
-            Tab::RtpStreamsTable => self.rtp_streams_table.ui(ctx),
-            Tab::RtpStreamsPlot => self.rtp_streams_plot.ui(ctx),
+            Tab::RtcpPackets => self.rtcp_packets_table.ui(ctx),
+            Tab::Streams => self.rtp_streams_table.ui(ctx),
+            Tab::Plot => self.rtp_streams_plot.ui(ctx),
         };
     }
 
