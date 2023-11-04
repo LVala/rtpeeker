@@ -83,7 +83,6 @@ impl RtcpPacketsTable {
             let packet = streams.packets.get(*id).unwrap();
 
             if *id != last_id {
-                log::info!("DUPA {}, {}", *id, last_id);
                 last_id = *id;
                 next_ix = 1;
             }
