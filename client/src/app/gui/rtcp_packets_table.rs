@@ -1,4 +1,5 @@
 use crate::streams::RefStreams;
+use crate::utils::ntp_to_string;
 use egui::{RichText, Ui};
 use egui_extras::{Column, TableBody, TableBuilder};
 use rtpeeker_common::rtcp::*;
@@ -73,8 +74,7 @@ impl RtcpPacketsTable {
 
         let heights = rtcp_packets.iter().map(|(_, pack)| get_row_height(pack));
 
-        let (id, _) = rtcp_packets.get(0).unwrap();
-        let mut last_id = *id;
+        let mut last_id = 0;
         let mut next_ix = 1;
 
         let first_ts = streams.packets.get(0).unwrap().timestamp;
@@ -82,17 +82,15 @@ impl RtcpPacketsTable {
             let (id, rtcp) = rtcp_packets.get(ix).unwrap();
             let packet = streams.packets.get(*id).unwrap();
 
-            let sub_ix = if *id == last_id {
-                next_ix += 1;
-                next_ix - 1
-            } else {
+            if *id != last_id {
+                log::info!("DUPA {}, {}", *id, last_id);
                 last_id = *id;
                 next_ix = 1;
-                next_ix
-            };
+            }
 
             row.col(|ui| {
-                ui.label(format!("{} ({})", id, sub_ix));
+                ui.label(format!("{} ({})", id, next_ix));
+                next_ix += 1;
             });
             row.col(|ui| {
                 let timestamp = packet.timestamp - first_ts;
@@ -156,7 +154,8 @@ fn build_sender_report(ui: &mut Ui, report: &SenderReport) {
     build_label(ui, "Source:", format!("{:x}", report.ssrc));
     ui.horizontal(|ui| {
         ui.vertical(|ui| {
-            build_label(ui, "NTP time:", report.ntp_time.to_string());
+            let datetime = ntp_to_string(report.ntp_time);
+            build_label(ui, "NTP time:", datetime);
             build_label(ui, "RTP time:", report.rtp_time.to_string());
         });
         ui.vertical(|ui| {
