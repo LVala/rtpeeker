@@ -126,11 +126,11 @@ fn get_row_height(packet: &RtcpPacket) -> f32 {
         }
         RtcpPacket::ReceiverReport(rr) => match rr.reports.len() {
             0 => 2.7,
-            _ => 8.0,
+            _ => 9.0,
         },
         RtcpPacket::SenderReport(sr) => match sr.reports.len() {
             0 => 4.7,
-            _ => 10.0,
+            _ => 11.0,
         },
         _ => 1.0,
     };
@@ -188,14 +188,24 @@ fn build_reception_reports(ui: &mut Ui, reports: &Vec<ReceptionReport>) {
             } else {
                 first = false;
             }
-            let fraction_lost = (report.fraction_lost as u32 / 256) * 10;
+            let fraction_lost = (report.fraction_lost as f64 / u8::MAX as f64) * 100.0;
+            let delay = report.delay as f64 / u16::MAX as f64 * 1000.0;
             ui.vertical(|ui| {
                 build_label(ui, "SSRC:", format!("{:x}", report.ssrc));
                 build_label(ui, "Fraction lost:", format!("{}%", fraction_lost));
                 build_label(ui, "Cumulative lost:", report.total_lost.to_string());
+                build_label(
+                    ui,
+                    "Extended highest sequence number:",
+                    report.last_sequence_number.to_string(),
+                );
                 build_label(ui, "Interarrival jitter:", report.jitter.to_string());
-                build_label(ui, "Last SR:", report.last_sender_report.to_string());
-                build_label(ui, "Delay since last SR:", report.delay.to_string());
+                build_label(
+                    ui,
+                    "Last SR timestamp:",
+                    report.last_sender_report.to_string(),
+                );
+                build_label(ui, "Delay since last SR:", format!("{:.4} ms", delay));
             });
         }
     });
