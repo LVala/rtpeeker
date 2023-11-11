@@ -164,7 +164,8 @@ impl RtpStreamsPlot {
                     .color(*color)
                     .highlight(false)
                     .width(0.5),
-            ); }
+            );
+        }
     }
 
     fn refresh_points(&mut self) {
