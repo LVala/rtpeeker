@@ -14,8 +14,8 @@ use std::fmt::{Display, Error, Formatter};
 
 struct PointData {
     x: f64,
-    y: f64,
-    height: f64,
+    y_low: f64,
+    y_top: f64,
     on_hover: String,
     color: Color32,
     radius: f32,
@@ -147,30 +147,30 @@ impl RtpStreamsPlot {
         for point_data in &self.points_data {
             let PointData {
                 x,
-                y,
-                height,
+                y_low,
+                y_top,
                 on_hover,
                 color,
                 radius,
             } = point_data;
-            plot_ui.line(
-                Line::new(PlotPoints::new(vec![[*x, *y], [*x, y + height]]))
-                    .name(on_hover)
-                    .color(*color)
-                    .width(0.5),
-            );
-            let point = Points::new([*x, *y])
+            let point = Points::new([*x, *y_top])
                 .name(on_hover)
                 .color(*color)
                 .radius(*radius);
+
             plot_ui.points(point);
-        }
+            plot_ui.line(
+                Line::new(PlotPoints::new(vec![[*x, *y_low], [*x, *y_top]]))
+                    .color(*color)
+                    .highlight(false)
+                    .width(0.5),
+            ); }
     }
 
     fn refresh_points(&mut self) {
         self.points_data.clear();
         let streams = self.streams.borrow();
-        let mut points_x_and_y_plus_height: Vec<(f64, f64)> = Vec::new();
+        let mut points_x_and_y_top: Vec<(f64, f64)> = Vec::new();
         let mut previous_stream_max_y = 0.0;
 
         streams
@@ -184,7 +184,7 @@ impl RtpStreamsPlot {
 
                 build_stream_points(
                     &streams,
-                    &mut points_x_and_y_plus_height,
+                    &mut points_x_and_y_top,
                     stream_ix,
                     &stream.rtp_packets,
                     stream.display_name.to_string(),
@@ -201,7 +201,7 @@ impl RtpStreamsPlot {
 #[allow(clippy::too_many_arguments)]
 fn build_stream_points(
     streams: &Ref<Streams>,
-    points_x_and_y_plus_height: &mut Vec<(f64, f64)>,
+    points_x_and_y_top: &mut Vec<(f64, f64)>,
     stream_ix: usize,
     rtp_packets: &[usize],
     display_name: String,
@@ -233,8 +233,8 @@ fn build_stream_points(
             streams.packets.get(prev_rtp_id)
         };
 
-        let (x, y, height) = get_x_and_y(
-            points_x_and_y_plus_height,
+        let (x, y_low, y_top) = get_x_and_y(
+            points_x_and_y_top,
             stream_ix,
             first_rtp_packet,
             previous_packet,
@@ -253,25 +253,24 @@ fn build_stream_points(
 
         points_data.push(PointData {
             x,
-            y,
-            height,
+            y_low,
+            y_top,
             on_hover,
             color: get_color(rtp_packet),
             radius: get_radius(rtp_packet),
         });
 
-        let y_and_height = y + height;
-        if *previous_stream_max_y < y_and_height {
-            *previous_stream_max_y = y_and_height;
+        if *previous_stream_max_y < y_top {
+            *previous_stream_max_y = y_top;
         }
 
-        points_x_and_y_plus_height.push((x, y_and_height));
+        points_x_and_y_top.push((x, y_top));
     });
 }
 
 #[allow(clippy::too_many_arguments)]
 fn get_x_and_y(
-    points_x_and_y_plus_height: &mut [(f64, f64)],
+    points_x_and_y_top: &mut [(f64, f64)],
     stream_ix: usize,
     first_rtp_packet: &RtpPacket,
     previous_packet: Option<&Packet>,
@@ -280,7 +279,7 @@ fn get_x_and_y(
     settings_x_axis: SettingsXAxis,
     this_stream_y_baseline: f64,
 ) -> (f64, f64, f64) {
-    let (x, y, height) = match settings_x_axis {
+    let (x, y, y_top) = match settings_x_axis {
         RtpTimestamp => {
             let minimum_shift = 0.02;
             let payload_length_shift = rtp_packet.payload_length as f64;
@@ -291,24 +290,23 @@ fn get_x_and_y(
                     unreachable!();
                 };
 
-                let y = if rtp_packet.timestamp != prev_rtp.timestamp {
+                let last_y_top = if rtp_packet.timestamp != prev_rtp.timestamp {
                     this_stream_y_baseline
                 } else {
-                    let prev_y_plus_height =
-                        points_x_and_y_plus_height.last().unwrap().to_owned().1;
-                    prev_y_plus_height
+                    let prev_y_top = points_x_and_y_top.last().unwrap().to_owned().1;
+                    prev_y_top
                 };
 
                 (
                     rtp_packet.timestamp as f64 - first_rtp_packet.timestamp as f64,
-                    y,
-                    height,
+                    last_y_top,
+                    last_y_top + height,
                 )
             } else {
                 (
                     rtp_packet.timestamp as f64 - first_rtp_packet.timestamp as f64,
                     this_stream_y_baseline,
-                    height,
+                    this_stream_y_baseline + height,
                 )
             }
         }
@@ -319,7 +317,7 @@ fn get_x_and_y(
             0.0,
         ),
     };
-    (x, y, height)
+    (x, y, y_top)
 }
 
 fn build_on_hover_text(
