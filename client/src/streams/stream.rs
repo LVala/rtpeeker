@@ -6,7 +6,7 @@ use std::time::Duration;
 #[derive(Debug)]
 pub struct Stream {
     pub rtp_packets: Vec<usize>,
-    // rtcp_packets: Vec<usize>,
+    pub rtcp_packets: Vec<usize>,
     pub source_addr: SocketAddr,
     pub destination_addr: SocketAddr,
     pub ssrc: u32,
@@ -32,7 +32,7 @@ impl Stream {
     ) -> Self {
         Self {
             rtp_packets: Vec::new(),
-            // rtcp_packets: Vec::new(),
+            rtcp_packets: Vec::new(),
             source_addr,
             destination_addr,
             ssrc,
@@ -57,6 +57,10 @@ impl Stream {
         self.calculate_jitter(packet);
         self.calculate_lost_percentage(packet);
         self.calculate_duration(packet);
+    }
+
+    pub fn add_rtcp_packet(&mut self, packet: &Packet) {
+        self.rtcp_packets.push(packet.id);
     }
 
     fn calculate_lost_percentage(&mut self, packet: &Packet) {

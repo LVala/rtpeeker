@@ -1,13 +1,13 @@
 use packets::Packets;
 use rtpeeker_common::packet::SessionPacket;
-use rtpeeker_common::{Packet, RtpPacket};
+use rtpeeker_common::{Packet, RtcpPacket, RtpPacket};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 use stream::Stream;
 
 mod packets;
-mod stream;
+pub mod stream;
 
 pub type RefStreams = Rc<RefCell<Streams>>;
 
@@ -100,9 +100,9 @@ impl Streams {
 // this function need to take streams as an argument as opposed to methods on `Streams`
 // to make `Streams::recalculate` work, dunno if there's a better way
 fn handle_packet(streams: &mut HashMap<u32, Stream>, packet: &Packet) {
+    let streams_len = streams.len();
     match packet.contents {
         SessionPacket::Rtp(ref pack) => {
-            let streams_len = streams.len();
             streams.entry(pack.ssrc).or_insert_with(|| {
                 Stream::new(
                     packet.source_addr,
@@ -117,8 +117,32 @@ fn handle_packet(streams: &mut HashMap<u32, Stream>, packet: &Packet) {
                 .unwrap()
                 .add_rtp_packet(packet, pack);
         }
-        SessionPacket::Rtcp(ref _packs) => {
-            // TODO: handle RTCP packets
+        SessionPacket::Rtcp(ref packs) => {
+            for pack in packs {
+                match pack {
+                    RtcpPacket::SenderReport(sender_report) => {
+                        let stream = streams.get_mut(&sender_report.ssrc);
+                        if let Some(str) = stream {
+                            str.add_rtcp_packet(packet)
+                        }
+                    }
+                    RtcpPacket::ReceiverReport(receiver_report) => {
+                        let stream = streams.get_mut(&receiver_report.ssrc);
+                        if let Some(str) = stream {
+                            str.add_rtcp_packet(packet)
+                        }
+                    }
+                    RtcpPacket::SourceDescription(source_description) => {
+                        for chunk in &source_description.chunks {
+                            let stream = streams.get_mut(&chunk.source);
+                            if let Some(str) = stream {
+                                str.add_rtcp_packet(packet)
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
         }
         _ => {}
     };

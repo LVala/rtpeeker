@@ -1,13 +1,14 @@
 use self::SettingsXAxis::*;
+use crate::streams::stream::Stream;
 use crate::streams::{is_stream_visible, RefStreams, Streams};
 use eframe::egui;
 use eframe::egui::TextBuffer;
 use eframe::epaint::Color32;
-use egui::plot::{Line, Plot, PlotPoints, PlotUi, Points};
+use egui::plot::{Line, MarkerShape, Plot, PlotPoints, PlotUi, Points};
 use egui::Ui;
 use rtpeeker_common::packet::SessionPacket;
 use rtpeeker_common::rtp::payload_type::MediaType;
-use rtpeeker_common::{Packet, RtpPacket};
+use rtpeeker_common::{Packet, RtcpPacket, RtpPacket};
 use std::cell::Ref;
 use std::collections::HashMap;
 use std::fmt::{Display, Error, Formatter};
@@ -19,6 +20,8 @@ struct PointData {
     on_hover: String,
     color: Color32,
     radius: f32,
+    is_rtcp: bool,
+    marker_shape: MarkerShape,
 }
 
 #[derive(Debug, PartialEq, Copy, Clone)]
@@ -152,19 +155,24 @@ impl RtpStreamsPlot {
                 on_hover,
                 color,
                 radius,
+                is_rtcp,
+                marker_shape,
             } = point_data;
             let point = Points::new([*x, *y_top])
                 .name(on_hover)
                 .color(*color)
-                .radius(*radius);
+                .radius(*radius)
+                .shape(*marker_shape);
 
             plot_ui.points(point);
-            plot_ui.line(
-                Line::new(PlotPoints::new(vec![[*x, *y_low], [*x, *y_top]]))
-                    .color(*color)
-                    .highlight(false)
-                    .width(0.5),
-            );
+            if !is_rtcp {
+                plot_ui.line(
+                    Line::new(PlotPoints::new(vec![[*x, *y_low], [*x, *y_top]]))
+                        .color(*color)
+                        .highlight(false)
+                        .width(0.5),
+                );
+            }
         }
     }
 
@@ -187,7 +195,7 @@ impl RtpStreamsPlot {
                     &streams,
                     &mut points_x_and_y_top,
                     stream_ix,
-                    &stream.rtp_packets,
+                    stream,
                     stream.display_name.to_string(),
                     self.settings_x_axis,
                     &mut self.points_data,
@@ -204,13 +212,15 @@ fn build_stream_points(
     streams: &Ref<Streams>,
     points_x_and_y_top: &mut Vec<(f64, f64)>,
     stream_ix: usize,
-    rtp_packets: &[usize],
+    stream: &Stream,
     display_name: String,
     settings_x_axis: SettingsXAxis,
     points_data: &mut Vec<PointData>,
     this_stream_y_baseline: f64,
     previous_stream_max_y: &mut f64,
 ) {
+    let rtp_packets = &stream.rtp_packets;
+    let rtcp_packets = &stream.rtcp_packets;
     if rtp_packets.is_empty() {
         return;
     }
@@ -221,6 +231,55 @@ fn build_stream_points(
         unreachable!();
     };
 
+    rtcp_packets.iter().for_each(|packet_ix| {
+        let packet = streams.packets.get(*packet_ix).unwrap();
+        let SessionPacket::Rtcp(ref rtcp_packets) = packet.contents else {
+            unreachable!();
+        };
+        for rtcp_packet in rtcp_packets {
+            if let RtcpPacket::SenderReport(sender_report) = rtcp_packet {
+                let rtp_time = sender_report.rtp_time as f64 - first_rtp_packet.timestamp as f64;
+                let mut on_hover = String::new();
+                on_hover.push_str("Sender Report\n\n");
+                on_hover.push_str(&format!("Source: {}\n", sender_report.ssrc));
+                on_hover.push_str(&format!("NTP time: {}\n", sender_report.ntp_time));
+                on_hover.push_str(&format!("RTP time: {}\n", rtp_time));
+                for report in &sender_report.reports {
+                    on_hover.push_str("------------------------\n");
+                    on_hover.push_str(&format!("SSRC: {}\n", report.ssrc));
+                    on_hover.push_str(&format!("Fraction lost: {}\n", report.fraction_lost));
+                    on_hover.push_str(&format!("Cumulative lost: {}\n", report.total_lost));
+                    on_hover.push_str(&format!(
+                        "Extended highest sequence number: {}\n",
+                        report.last_sequence_number
+                    ));
+                    on_hover.push_str(&format!("Interarrival jitter: {}\n", report.jitter));
+                    on_hover.push_str(&format!(
+                        "Last SR timestamp: {}\n",
+                        report.last_sender_report
+                    ));
+                    on_hover.push_str(&format!("Delay since last SR: {}\n", report.delay));
+                }
+
+                match settings_x_axis {
+                    RtpTimestamp => {
+                        points_data.push(PointData {
+                            x: rtp_time,
+                            y_low: this_stream_y_baseline,
+                            y_top: this_stream_y_baseline,
+                            on_hover,
+                            color: Color32::LIGHT_BLUE,
+                            radius: 2.5,
+                            is_rtcp: true,
+                            marker_shape: MarkerShape::Square,
+                        });
+                    }
+                    RawTimestamp => {}
+                    SequenceNumer => {}
+                }
+            };
+        }
+    });
     rtp_packets.iter().enumerate().for_each(|(packet_ix, &ix)| {
         let packet = streams.packets.get(ix).unwrap();
         let SessionPacket::Rtp(ref rtp_packet) = packet.contents else {
@@ -259,6 +318,8 @@ fn build_stream_points(
             on_hover,
             color: get_color(rtp_packet),
             radius: get_radius(rtp_packet),
+            is_rtcp: false,
+            marker_shape: MarkerShape::Circle,
         });
 
         if *previous_stream_max_y < y_top {
