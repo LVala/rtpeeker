@@ -20,10 +20,7 @@ impl Packets {
     }
 
     pub fn is_new(&self, packet: &Packet) -> bool {
-        match self.packets.last_key_value() {
-            Some((id, _)) => packet.id > *id,
-            None => true,
-        }
+        self.packets.contains_key(&packet.id)
     }
 
     pub fn len(&self) -> usize {

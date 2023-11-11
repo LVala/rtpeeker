@@ -1,8 +1,9 @@
 use packets::Packets;
 use rtpeeker_common::packet::SessionPacket;
-use rtpeeker_common::{Packet, RtcpPacket, RtpPacket};
+use rtpeeker_common::{packet::TransportProtocol, Packet, RtpPacket, RtcpPacket};
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::net::SocketAddr;
 use std::rc::Rc;
 use stream::Stream;
 
@@ -103,19 +104,12 @@ fn handle_packet(streams: &mut HashMap<u32, Stream>, packet: &Packet) {
     let streams_len = streams.len();
     match packet.contents {
         SessionPacket::Rtp(ref pack) => {
-            streams.entry(pack.ssrc).or_insert_with(|| {
-                Stream::new(
-                    packet.source_addr,
-                    packet.destination_addr,
-                    pack.ssrc,
-                    pack.payload_type.id,
-                    int_to_letter(streams_len),
-                )
-            });
+            // TODO
+            maybe_add_stream();
             streams
                 .get_mut(&pack.ssrc)
                 .unwrap()
-                .add_rtp_packet(packet, pack);
+                .add_rtp_packet(packet.id, packet.timestamp, pack);
         }
         SessionPacket::Rtcp(ref packs) => {
             for pack in packs {
@@ -146,6 +140,25 @@ fn handle_packet(streams: &mut HashMap<u32, Stream>, packet: &Packet) {
         }
         _ => {}
     };
+}
+
+fn maybe_add_stream(
+    streams: &mut HashMap<u32, Stream>,
+    source_addr: SocketAddr,
+    destination_addr: SocketAddr,
+    protocol: TransportProtocol,
+    ssrc: u32,
+) {
+    let streams_len = streams.len();
+    streams.entry(ssrc).or_insert_with(|| {
+        Stream::new(
+            source_addr,
+            destination_addr,
+            protocol,
+            ssrc,
+            int_to_letter(streams_len),
+        )
+    });
 }
 
 fn int_to_letter(unique_id: usize) -> String {

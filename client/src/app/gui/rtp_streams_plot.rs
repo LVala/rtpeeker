@@ -99,10 +99,7 @@ impl RtpStreamsPlot {
             ui.label("Toggle streams: ");
             ssrcs.iter().for_each(|&ssrc| {
                 let selected = is_stream_visible(&mut self.streams_visibility, *ssrc);
-                let resp = ui.checkbox(
-                    selected,
-                    streams.get(ssrc).unwrap().display_name.to_string(),
-                );
+                let resp = ui.checkbox(selected, streams.get(ssrc).unwrap().alias.to_string());
                 if resp.clicked() {
                     self.requires_reset = true
                 }
@@ -195,8 +192,13 @@ impl RtpStreamsPlot {
                     &streams,
                     &mut points_x_and_y_top,
                     stream_ix,
+<<<<<<< HEAD
                     stream,
                     stream.display_name.to_string(),
+=======
+                    &stream.rtp_packets,
+                    stream.alias.to_string(),
+>>>>>>> fc19893 (Refactor `stream.rs`)
                     self.settings_x_axis,
                     &mut self.points_data,
                     previous_stream_max_y * 1.2,
