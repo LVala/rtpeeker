@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt;
 
 use eframe::egui;
@@ -297,4 +298,8 @@ fn side_button(text: &str) -> egui::Button {
     egui::Button::new(text)
         .min_size((30.0, 30.0).into())
         .rounding(egui::Rounding::same(9.0))
+}
+
+pub fn is_stream_visible(streams_visibility: &mut HashMap<u32, bool>, ssrc: u32) -> &mut bool {
+    streams_visibility.entry(ssrc).or_insert(true)
 }

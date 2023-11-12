@@ -1,7 +1,7 @@
-use std::ops::Div;
+// use std::ops::Div;
 
-use eframe::egui::plot::{Line, Plot, PlotPoints};
-use egui::{Color32, RichText, TextEdit, Vec2};
+// use eframe::egui::plot::{Line, Plot, PlotPoints};
+use egui::{Color32, RichText, TextEdit}; //,Vec2};
 use egui_extras::{Column, TableBody, TableBuilder};
 
 use crate::streams::RefStreams;
@@ -62,7 +62,7 @@ impl RtpStreamsTable {
             let stream = streams.streams.get_mut(stream_ssrc).unwrap();
 
             row.col(|ui| {
-                let text_edit = TextEdit::singleline(&mut stream.display_name).frame(false);
+                let text_edit = TextEdit::singleline(&mut stream.alias).frame(false);
                 ui.add(text_edit);
             });
 
@@ -91,50 +91,50 @@ impl RtpStreamsTable {
                 };
                 ui.label(RichText::from(format!("{:.2}%", stream.lost_percentage)).color(color));
             });
-            row.col(|ui| {
-                let color = if stream.jitter_in_ms <= 1.0 {
-                    Color32::GREEN
-                } else if stream.jitter_in_ms <= 5.0 {
-                    Color32::GOLD
-                } else {
-                    Color32::RED
-                };
-                ui.label(
-                    RichText::from(format!("{:.8}ms", stream.jitter_in_ms.to_string()))
-                        .color(color),
-                );
-            });
-            row.col(|ui| {
-                ui.vertical_centered_justified(|ui| {
-                    let points: PlotPoints = (0..stream.jitter_history.len())
-                        .map(|i| [i as f64, *stream.jitter_history.get(i).unwrap()])
-                        .collect();
-
-                    let zero_axis: PlotPoints = (0..(stream.jitter_history.len()
-                        + (stream.jitter_history.len().div(5))))
-                        .map(|i| [i as f64, 0.0])
-                        .collect();
-
-                    let line = Line::new(points).name("jitter");
-                    let line_zero_axis = Line::new(zero_axis).color(Color32::GRAY);
-                    Plot::new(id.to_string())
-                        .show_background(false)
-                        .show_axes([false, false])
-                        .label_formatter(|name, value| {
-                            if name.ne("jitter") || value.x.fract() != 0.0 {
-                                return "".to_string();
-                            }
-                            format!("packet number = {}\njitter = {:.5}ms", value.x, value.y)
-                        })
-                        .set_margin_fraction(Vec2::new(0.1, 0.1))
-                        .allow_scroll(false)
-                        .show(ui, |plot_ui| {
-                            plot_ui.line(line_zero_axis);
-                            plot_ui.line(line);
-                        });
-                    ui.add_space(7.0);
-                });
-            });
+            // row.col(|ui| {
+            //     let color = if stream.jitter_in_ms <= 1.0 {
+            //         Color32::GREEN
+            //     } else if stream.jitter_in_ms <= 5.0 {
+            //         Color32::GOLD
+            //     } else {
+            //         Color32::RED
+            //     };
+            //     ui.label(
+            //         RichText::from(format!("{:.8}ms", stream.jitter_in_ms.to_string()))
+            //             .color(color),
+            //     );
+            // });
+            // row.col(|ui| {
+            //     ui.vertical_centered_justified(|ui| {
+            //         let points: PlotPoints = (0..stream.jitter_history.len())
+            //             .map(|i| [i as f64, *stream.jitter_history.get(i).unwrap()])
+            //             .collect();
+            //
+            //         let zero_axis: PlotPoints = (0..(stream.jitter_history.len()
+            //             + (stream.jitter_history.len().div(5))))
+            //             .map(|i| [i as f64, 0.0])
+            //             .collect();
+            //
+            //         let line = Line::new(points).name("jitter");
+            //         let line_zero_axis = Line::new(zero_axis).color(Color32::GRAY);
+            //         Plot::new(id.to_string())
+            //             .show_background(false)
+            //             .show_axes([false, false])
+            //             .label_formatter(|name, value| {
+            //                 if name.ne("jitter") || value.x.fract() != 0.0 {
+            //                     return "".to_string();
+            //                 }
+            //                 format!("packet number = {}\njitter = {:.5}ms", value.x, value.y)
+            //             })
+            //             .set_margin_fraction(Vec2::new(0.1, 0.1))
+            //             .allow_scroll(false)
+            //             .show(ui, |plot_ui| {
+            //                 plot_ui.line(line_zero_axis);
+            //                 plot_ui.line(line);
+            //             });
+            //         ui.add_space(7.0);
+            //     });
+            // });
         });
     }
 }

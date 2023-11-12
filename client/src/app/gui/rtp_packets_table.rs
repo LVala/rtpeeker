@@ -1,10 +1,10 @@
+use super::is_stream_visible;
+use crate::streams::RefStreams;
 use eframe::epaint::Color32;
 use egui::RichText;
 use egui_extras::{Column, TableBody, TableBuilder};
 use rtpeeker_common::packet::SessionPacket;
 use std::collections::HashMap;
-
-use crate::streams::{is_stream_visible, RefStreams};
 
 pub struct RtpPacketsTable {
     streams: RefStreams,
@@ -36,7 +36,7 @@ impl RtpPacketsTable {
                 let selected = is_stream_visible(&mut self.streams_visibility, *ssrc);
                 ui.checkbox(
                     selected,
-                    streams.streams.get(ssrc).unwrap().display_name.to_string(),
+                    streams.streams.get(ssrc).unwrap().alias.to_string(),
                 );
             });
         });
@@ -105,7 +105,7 @@ impl RtpPacketsTable {
 
         let mut ssrc_to_display_name: HashMap<&u32, String> = HashMap::default();
         streams.streams.iter().for_each(|(ssrc, stream)| {
-            ssrc_to_display_name.insert(ssrc, stream.display_name.to_string());
+            ssrc_to_display_name.insert(ssrc, stream.alias.to_string());
         });
 
         let first_ts = rtp_packets.get(0).unwrap().timestamp;
@@ -148,17 +148,17 @@ impl RtpPacketsTable {
             resp.on_hover_text(rtp_packet.payload_type.to_string());
 
             row.col(|ui| {
-                if rtp_packet.previous_packet_is_lost {
-                    let resp = ui.label(
-                        RichText::from(format!("{} ⚠", rtp_packet.sequence_number))
-                            .color(Color32::GOLD),
-                    );
-                    resp.on_hover_text(
-                        RichText::from("Previous packet is lost!").color(Color32::GOLD),
-                    );
-                } else {
-                    ui.label(rtp_packet.sequence_number.to_string());
-                }
+                // if rtp_packet.previous_packet_is_lost {
+                //     let resp = ui.label(
+                //         RichText::from(format!("{} ⚠", rtp_packet.sequence_number))
+                //             .color(Color32::GOLD),
+                //     );
+                //     resp.on_hover_text(
+                //         RichText::from("Previous packet is lost!").color(Color32::GOLD),
+                //     );
+                // } else {
+                ui.label(rtp_packet.sequence_number.to_string());
+                // }
             });
 
             row.col(|ui| {

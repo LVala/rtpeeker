@@ -1,6 +1,6 @@
 use packets::Packets;
 use rtpeeker_common::packet::SessionPacket;
-use rtpeeker_common::{packet::TransportProtocol, Packet, RtpPacket, RtcpPacket};
+use rtpeeker_common::{packet::TransportProtocol, Packet, RtcpPacket};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::net::SocketAddr;
@@ -15,6 +15,8 @@ pub type RefStreams = Rc<RefCell<Streams>>;
 #[derive(Debug, Default)]
 pub struct Streams {
     pub packets: Packets,
+    // FIXME: there's small chance for SSRC collision
+    // so the key should be (source, dest, proto, ssrc)
     pub streams: HashMap<u32, Stream>,
 }
 
@@ -24,12 +26,10 @@ impl Streams {
         self.streams.clear();
     }
 
-    pub fn add_packet(&mut self, mut packet: Packet) {
+    pub fn add_packet(&mut self, packet: Packet) {
         let is_new = self.packets.is_new(&packet);
 
         if is_new {
-            // TODO: this can fail and going over 10 packets for new packet seems inefficient
-            self.detect_previous_packet_lost(&mut packet);
             handle_packet(&mut self.streams, &packet);
             self.packets.add_packet(packet);
         } else {
@@ -39,51 +39,6 @@ impl Streams {
             // this can be optimised if it proves to be to slow
             self.packets.add_packet(packet);
             self.recalculate();
-        }
-    }
-
-    fn detect_previous_packet_lost(&mut self, packet: &mut Packet) {
-        if let SessionPacket::Rtp(ref mut new_rtp) = packet.contents {
-            self.update_subsequent_packet(new_rtp);
-            if !self.previous_packet_present(new_rtp) {
-                new_rtp.previous_packet_is_lost = true
-            }
-        };
-    }
-
-    fn update_subsequent_packet(&mut self, new_rtp: &mut RtpPacket) {
-        if let Some(stream) = self.streams.get_mut(&new_rtp.ssrc) {
-            stream
-                .rtp_packets
-                .iter()
-                .rev()
-                .take(10)
-                .for_each(|rtp_pack_id| {
-                    let rtp_packet = self.packets.get_mut(*rtp_pack_id).unwrap();
-                    let SessionPacket::Rtp(ref mut rtp) = rtp_packet.contents else {
-                        unreachable!();
-                    };
-
-                    if rtp.sequence_number == new_rtp.sequence_number + 1 {
-                        rtp.previous_packet_is_lost = false
-                    }
-                });
-        }
-    }
-
-    fn previous_packet_present(&mut self, new_rtp: &mut RtpPacket) -> bool {
-        if let Some(stream) = self.streams.get(&new_rtp.ssrc) {
-            stream.rtp_packets.iter().rev().take(10).any(|rtp_pack_id| {
-                let rtp_packet = self.packets.get(*rtp_pack_id).unwrap();
-                let SessionPacket::Rtp(ref rtp) = rtp_packet.contents else {
-                    unreachable!();
-                };
-
-                rtp.sequence_number == new_rtp.sequence_number - 1
-            })
-        } else {
-            // stream not present - it is first packet
-            true
         }
     }
 
@@ -101,54 +56,52 @@ impl Streams {
 // this function need to take streams as an argument as opposed to methods on `Streams`
 // to make `Streams::recalculate` work, dunno if there's a better way
 fn handle_packet(streams: &mut HashMap<u32, Stream>, packet: &Packet) {
-    let streams_len = streams.len();
     match packet.contents {
         SessionPacket::Rtp(ref pack) => {
-            // TODO
-            maybe_add_stream();
-            streams
-                .get_mut(&pack.ssrc)
-                .unwrap()
-                .add_rtp_packet(packet.id, packet.timestamp, pack);
+            let stream = get_stream(
+                streams,
+                packet.source_addr,
+                packet.destination_addr,
+                packet.transport_protocol,
+                pack.ssrc,
+            );
+            stream.add_rtp_packet(packet.id, packet.timestamp, pack);
         }
         SessionPacket::Rtcp(ref packs) => {
             for pack in packs {
-                match pack {
-                    RtcpPacket::SenderReport(sender_report) => {
-                        let stream = streams.get_mut(&sender_report.ssrc);
-                        if let Some(str) = stream {
-                            str.add_rtcp_packet(packet)
-                        }
+                let ssrcs = match pack {
+                    RtcpPacket::SenderReport(sr) => vec![sr.ssrc],
+                    RtcpPacket::ReceiverReport(rr) => vec![rr.ssrc],
+                    RtcpPacket::SourceDescription(sd) => {
+                        sd.chunks.iter().map(|chunk| chunk.source).collect()
                     }
-                    RtcpPacket::ReceiverReport(receiver_report) => {
-                        let stream = streams.get_mut(&receiver_report.ssrc);
-                        if let Some(str) = stream {
-                            str.add_rtcp_packet(packet)
-                        }
-                    }
-                    RtcpPacket::SourceDescription(source_description) => {
-                        for chunk in &source_description.chunks {
-                            let stream = streams.get_mut(&chunk.source);
-                            if let Some(str) = stream {
-                                str.add_rtcp_packet(packet)
-                            }
-                        }
-                    }
-                    _ => {}
+                    _ => Vec::new(),
+                };
+
+                for ssrc in ssrcs {
+                    let stream = get_stream(
+                        streams,
+                        packet.source_addr,
+                        packet.destination_addr,
+                        packet.transport_protocol,
+                        ssrc,
+                    );
+                    stream.add_rtcp_packet(packet.id, packet.timestamp, pack);
                 }
             }
         }
+        // Ignoring other types of RTCP packet for now
         _ => {}
     };
 }
 
-fn maybe_add_stream(
+fn get_stream(
     streams: &mut HashMap<u32, Stream>,
     source_addr: SocketAddr,
     destination_addr: SocketAddr,
     protocol: TransportProtocol,
     ssrc: u32,
-) {
+) -> &mut Stream {
     let streams_len = streams.len();
     streams.entry(ssrc).or_insert_with(|| {
         Stream::new(
@@ -158,7 +111,7 @@ fn maybe_add_stream(
             ssrc,
             int_to_letter(streams_len),
         )
-    });
+    })
 }
 
 fn int_to_letter(unique_id: usize) -> String {
@@ -175,8 +128,4 @@ fn int_to_letter(unique_id: usize) -> String {
     }
 
     result
-}
-
-pub fn is_stream_visible(streams_visibility: &mut HashMap<u32, bool>, ssrc: u32) -> &mut bool {
-    streams_visibility.entry(ssrc).or_insert(true)
 }

@@ -1,6 +1,7 @@
 use self::SettingsXAxis::*;
-use crate::streams::stream::Stream;
-use crate::streams::{is_stream_visible, RefStreams, Streams};
+use super::is_stream_visible;
+use crate::streams::stream::{RtpInfo, Stream};
+use crate::streams::{RefStreams, Streams};
 use eframe::egui;
 use eframe::egui::TextBuffer;
 use eframe::epaint::Color32;
@@ -192,13 +193,7 @@ impl RtpStreamsPlot {
                     &streams,
                     &mut points_x_and_y_top,
                     stream_ix,
-<<<<<<< HEAD
                     stream,
-                    stream.display_name.to_string(),
-=======
-                    &stream.rtp_packets,
-                    stream.alias.to_string(),
->>>>>>> fc19893 (Refactor `stream.rs`)
                     self.settings_x_axis,
                     &mut self.points_data,
                     previous_stream_max_y * 1.2,
@@ -208,14 +203,12 @@ impl RtpStreamsPlot {
     }
 }
 
-// TODO: this needs to be refactored at some point
 #[allow(clippy::too_many_arguments)]
 fn build_stream_points(
     streams: &Ref<Streams>,
     points_x_and_y_top: &mut Vec<(f64, f64)>,
     stream_ix: usize,
     stream: &Stream,
-    display_name: String,
     settings_x_axis: SettingsXAxis,
     points_data: &mut Vec<PointData>,
     this_stream_y_baseline: f64,
@@ -228,13 +221,13 @@ fn build_stream_points(
     }
 
     let first_rtp_id = rtp_packets.first().unwrap();
-    let first_packet = streams.packets.get(*first_rtp_id).unwrap();
+    let first_packet = streams.packets.get(first_rtp_id.id).unwrap();
     let SessionPacket::Rtp(ref first_rtp_packet) = first_packet.contents else {
         unreachable!();
     };
 
     rtcp_packets.iter().for_each(|packet_ix| {
-        let packet = streams.packets.get(*packet_ix).unwrap();
+        let packet = streams.packets.get(packet_ix.id).unwrap();
         let SessionPacket::Rtcp(ref rtcp_packets) = packet.contents else {
             unreachable!();
         };
@@ -282,54 +275,45 @@ fn build_stream_points(
             };
         }
     });
-    rtp_packets.iter().enumerate().for_each(|(packet_ix, &ix)| {
-        let packet = streams.packets.get(ix).unwrap();
-        let SessionPacket::Rtp(ref rtp_packet) = packet.contents else {
-            unreachable!();
-        };
+    rtp_packets
+        .iter()
+        .enumerate()
+        .for_each(|(packet_ix, packet)| {
+            let previous_packet = if packet_ix == 0 {
+                None
+            } else {
+                let prev_rtp_id = rtp_packets.get(packet_ix - 1).unwrap().id;
+                streams.packets.get(prev_rtp_id)
+            };
 
-        let previous_packet = if packet_ix == 0 {
-            None
-        } else {
-            let prev_rtp_id = *rtp_packets.get(packet_ix - 1).unwrap();
-            streams.packets.get(prev_rtp_id)
-        };
+            let (x, y_low, y_top) = get_x_and_y(
+                points_x_and_y_top,
+                stream_ix,
+                first_rtp_packet,
+                previous_packet,
+                packet,
+                settings_x_axis,
+                this_stream_y_baseline,
+            );
+            let on_hover = build_on_hover_text(stream, packet, x, settings_x_axis);
 
-        let (x, y_low, y_top) = get_x_and_y(
-            points_x_and_y_top,
-            stream_ix,
-            first_rtp_packet,
-            previous_packet,
-            packet,
-            rtp_packet,
-            settings_x_axis,
-            this_stream_y_baseline,
-        );
-        let on_hover = build_on_hover_text(
-            display_name.to_string(),
-            packet,
-            rtp_packet,
-            x,
-            settings_x_axis,
-        );
+            points_data.push(PointData {
+                x,
+                y_low,
+                y_top,
+                on_hover,
+                color: get_color(packet),
+                radius: get_radius(packet),
+                is_rtcp: false,
+                marker_shape: MarkerShape::Circle,
+            });
 
-        points_data.push(PointData {
-            x,
-            y_low,
-            y_top,
-            on_hover,
-            color: get_color(rtp_packet),
-            radius: get_radius(rtp_packet),
-            is_rtcp: false,
-            marker_shape: MarkerShape::Circle,
+            if *previous_stream_max_y < y_top {
+                *previous_stream_max_y = y_top;
+            }
+
+            points_x_and_y_top.push((x, y_top));
         });
-
-        if *previous_stream_max_y < y_top {
-            *previous_stream_max_y = y_top;
-        }
-
-        points_x_and_y_top.push((x, y_top));
-    });
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -338,15 +322,14 @@ fn get_x_and_y(
     stream_ix: usize,
     first_rtp_packet: &RtpPacket,
     previous_packet: Option<&Packet>,
-    packet: &Packet,
-    rtp_packet: &RtpPacket,
+    rtp: &RtpInfo,
     settings_x_axis: SettingsXAxis,
     this_stream_y_baseline: f64,
 ) -> (f64, f64, f64) {
     let (x, y, y_top) = match settings_x_axis {
         RtpTimestamp => {
             let minimum_shift = 0.02;
-            let payload_length_shift = rtp_packet.payload_length as f64;
+            let payload_length_shift = rtp.packet.payload_length as f64;
             let height = minimum_shift * payload_length_shift;
 
             if let Some(prev_packet) = previous_packet {
@@ -354,7 +337,7 @@ fn get_x_and_y(
                     unreachable!();
                 };
 
-                let last_y_top = if rtp_packet.timestamp != prev_rtp.timestamp {
+                let last_y_top = if rtp.packet.timestamp != prev_rtp.timestamp {
                     this_stream_y_baseline
                 } else {
                     let prev_y_top = points_x_and_y_top.last().unwrap().to_owned().1;
@@ -362,21 +345,21 @@ fn get_x_and_y(
                 };
 
                 (
-                    rtp_packet.timestamp as f64 - first_rtp_packet.timestamp as f64,
+                    rtp.packet.timestamp as f64 - first_rtp_packet.timestamp as f64,
                     last_y_top,
                     last_y_top + height,
                 )
             } else {
                 (
-                    rtp_packet.timestamp as f64 - first_rtp_packet.timestamp as f64,
+                    rtp.packet.timestamp as f64 - first_rtp_packet.timestamp as f64,
                     this_stream_y_baseline,
                     this_stream_y_baseline + height,
                 )
             }
         }
-        RawTimestamp => (packet.timestamp.as_secs_f64(), stream_ix as f64, 0.0),
+        RawTimestamp => (rtp.time.as_secs_f64(), stream_ix as f64, 0.0),
         SequenceNumer => (
-            (rtp_packet.sequence_number - first_rtp_packet.sequence_number) as f64,
+            (rtp.packet.sequence_number - first_rtp_packet.sequence_number) as f64,
             stream_ix as f64,
             0.0,
         ),
@@ -385,28 +368,24 @@ fn get_x_and_y(
 }
 
 fn build_on_hover_text(
-    display_name: String,
-    packet: &Packet,
-    rtp_packet: &RtpPacket,
+    stream: &Stream,
+    rtp: &RtpInfo,
     x: f64,
     settings_x_axis: SettingsXAxis,
 ) -> String {
     let mut on_hover = String::new();
 
-    on_hover.push_str(&format!(
-        "Alias: {} (SSRC: {})",
-        display_name, rtp_packet.ssrc
-    ));
+    on_hover.push_str(&format!("Alias: {} (SSRC: {})", stream.alias, stream.ssrc));
     on_hover.push('\n');
     on_hover.push_str(&format!(
         "Source: {}\nDestination: {}\n",
-        packet.source_addr, packet.destination_addr
+        stream.source_addr, stream.destination_addr
     ));
-    if rtp_packet.previous_packet_is_lost {
+    if rtp.prev_lost {
         on_hover.push_str("\n***Previous packet is lost!***\n")
     }
-    let marker_info = if rtp_packet.marker {
-        match rtp_packet.payload_type.media_type {
+    let marker_info = if rtp.packet.marker {
+        match rtp.packet.payload_type.media_type {
             MediaType::Audio => {
                 "\nFor audio payload type, marker says that it is first packet after silence.\n"
             }
@@ -423,36 +402,36 @@ fn build_on_hover_text(
     };
     on_hover.push_str(marker_info);
     on_hover.push('\n');
-    on_hover.push_str(&format!("Sequence number: {}", rtp_packet.sequence_number));
+    on_hover.push_str(&format!("Sequence number: {}", rtp.packet.sequence_number));
     on_hover.push('\n');
-    on_hover.push_str(&format!("Payload length: {}", rtp_packet.payload_length));
+    on_hover.push_str(&format!("Payload length: {}", rtp.packet.payload_length));
     on_hover.push('\n');
-    on_hover.push_str(&format!("Padding: {}", rtp_packet.padding));
+    on_hover.push_str(&format!("Padding: {}", rtp.packet.padding));
     on_hover.push('\n');
-    on_hover.push_str(&format!("Extensions headers: {}", rtp_packet.extension));
+    on_hover.push_str(&format!("Extensions headers: {}", rtp.packet.extension));
     on_hover.push('\n');
-    on_hover.push_str(&format!("Marker: {}", rtp_packet.marker));
+    on_hover.push_str(&format!("Marker: {}", rtp.packet.marker));
     on_hover.push('\n');
-    on_hover.push_str(&format!("CSRC: {:?}", rtp_packet.csrc));
+    on_hover.push_str(&format!("CSRC: {:?}", rtp.packet.csrc));
     on_hover.push('\n');
-    on_hover.push_str(&rtp_packet.payload_type.to_string());
+    on_hover.push_str(&rtp.packet.payload_type.to_string());
     on_hover.push('\n');
     on_hover.push_str(&format!("x = {} [{}]\n", x, settings_x_axis));
     on_hover
 }
 
-fn get_radius(rtp_packet: &RtpPacket) -> f32 {
-    if rtp_packet.previous_packet_is_lost {
+fn get_radius(rtp: &RtpInfo) -> f32 {
+    if rtp.prev_lost {
         2.5
     } else {
         1.5
     }
 }
 
-fn get_color(rtp_packet: &RtpPacket) -> Color32 {
-    if rtp_packet.previous_packet_is_lost {
+fn get_color(rtp: &RtpInfo) -> Color32 {
+    if rtp.prev_lost {
         Color32::GOLD
-    } else if rtp_packet.marker {
+    } else if rtp.packet.marker {
         Color32::GREEN
     } else {
         Color32::RED
