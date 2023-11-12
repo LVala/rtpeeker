@@ -121,26 +121,76 @@ fn handle_packet(streams: &mut HashMap<u32, Stream>, packet: &Packet) {
             for pack in packs {
                 match pack {
                     RtcpPacket::SenderReport(sender_report) => {
-                        let stream = streams.get_mut(&sender_report.ssrc);
-                        if let Some(str) = stream {
-                            str.add_rtcp_packet(packet)
+                        if let Some(stream) = streams.get_mut(&sender_report.ssrc) {
+                            stream.add_rtcp_packet(packet)
                         }
                     }
                     RtcpPacket::ReceiverReport(receiver_report) => {
-                        let stream = streams.get_mut(&receiver_report.ssrc);
-                        if let Some(str) = stream {
-                            str.add_rtcp_packet(packet)
+                        for report in &receiver_report.reports {
+                            if let Some(stream) = streams.get_mut(&report.ssrc) {
+                                stream.add_rtcp_packet(packet)
+                            }
                         }
                     }
                     RtcpPacket::SourceDescription(source_description) => {
                         for chunk in &source_description.chunks {
-                            let stream = streams.get_mut(&chunk.source);
-                            if let Some(str) = stream {
-                                str.add_rtcp_packet(packet)
+                            if let Some(stream) = streams.get_mut(&chunk.source) {
+                                stream.add_rtcp_packet(packet)
                             }
                         }
                     }
-                    _ => {}
+                    RtcpPacket::Goodbye(goodbye) => {
+                        for source in &goodbye.sources {
+                            if let Some(stream) = streams.get_mut(source) {
+                                stream.add_rtcp_packet(packet)
+                            }
+                        }
+                    }
+                    RtcpPacket::ApplicationDefined(_) => {
+                        streams.iter_mut().for_each(|(_, stream)| {
+                            if stream.source_addr == packet.source_addr
+                                && stream.destination_addr == packet.destination_addr
+                            {
+                                stream.add_rtcp_packet(packet)
+                            }
+                        });
+                    }
+                    RtcpPacket::PayloadSpecificFeedback(_) => {
+                        streams.iter_mut().for_each(|(_, stream)| {
+                            if stream.source_addr == packet.source_addr
+                                && stream.destination_addr == packet.destination_addr
+                            {
+                                stream.add_rtcp_packet(packet)
+                            }
+                        });
+                    }
+                    RtcpPacket::TransportSpecificFeedback(_) => {
+                        streams.iter_mut().for_each(|(_, stream)| {
+                            if stream.source_addr == packet.source_addr
+                                && stream.destination_addr == packet.destination_addr
+                            {
+                                stream.add_rtcp_packet(packet)
+                            }
+                        });
+                    }
+                    RtcpPacket::ExtendedReport(_) => {
+                        streams.iter_mut().for_each(|(_, stream)| {
+                            if stream.source_addr == packet.source_addr
+                                && stream.destination_addr == packet.destination_addr
+                            {
+                                stream.add_rtcp_packet(packet)
+                            }
+                        });
+                    }
+                    RtcpPacket::Other(_) => {
+                        streams.iter_mut().for_each(|(_, stream)| {
+                            if stream.source_addr == packet.source_addr
+                                && stream.destination_addr == packet.destination_addr
+                            {
+                                stream.add_rtcp_packet(packet)
+                            }
+                        });
+                    }
                 }
             }
         }
