@@ -1,7 +1,7 @@
 use self::SettingsXAxis::*;
 use super::is_stream_visible;
 use crate::streams::stream::{RtpInfo, Stream};
-use crate::streams::{RefStreams, Streams};
+use crate::streams::{RefStreams, StreamKey, Streams};
 use eframe::egui;
 use eframe::egui::TextBuffer;
 use eframe::epaint::Color32;
@@ -55,7 +55,7 @@ pub struct RtpStreamsPlot {
     points_data: Vec<PointData>,
     settings_x_axis: SettingsXAxis,
     requires_reset: bool,
-    streams_visibility: HashMap<u32, bool>,
+    streams_visibility: HashMap<StreamKey, bool>,
     last_rtp_packets_len: usize,
 }
 
@@ -95,12 +95,12 @@ impl RtpStreamsPlot {
         });
         ui.horizontal_wrapped(|ui| {
             let streams = &self.streams.borrow().streams;
-            let ssrcs: Vec<_> = streams.keys().collect();
+            let keys: Vec<_> = streams.keys().collect();
 
             ui.label("Toggle streams: ");
-            ssrcs.iter().for_each(|&ssrc| {
-                let selected = is_stream_visible(&mut self.streams_visibility, *ssrc);
-                let resp = ui.checkbox(selected, streams.get(ssrc).unwrap().alias.to_string());
+            keys.iter().for_each(|&key| {
+                let selected = is_stream_visible(&mut self.streams_visibility, *key);
+                let resp = ui.checkbox(selected, streams.get(key).unwrap().alias.to_string());
                 if resp.clicked() {
                     self.requires_reset = true
                 }
@@ -184,8 +184,8 @@ impl RtpStreamsPlot {
             .streams
             .iter()
             .enumerate()
-            .for_each(|(stream_ix, (ssrc, stream))| {
-                if !*(is_stream_visible(&mut self.streams_visibility, *ssrc)) {
+            .for_each(|(stream_ix, (key, stream))| {
+                if !*(is_stream_visible(&mut self.streams_visibility, *key)) {
                     return;
                 }
 

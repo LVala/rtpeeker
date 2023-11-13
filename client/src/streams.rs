@@ -11,13 +11,14 @@ mod packets;
 pub mod stream;
 
 pub type RefStreams = Rc<RefCell<Streams>>;
+pub type StreamKey = (SocketAddr, SocketAddr, TransportProtocol, u32);
 
 #[derive(Debug, Default)]
 pub struct Streams {
     pub packets: Packets,
     // FIXME: there's small chance for SSRC collision
     // so the key should be (source, dest, proto, ssrc)
-    pub streams: HashMap<u32, Stream>,
+    pub streams: HashMap<StreamKey, Stream>,
 }
 
 impl Streams {
@@ -55,7 +56,7 @@ impl Streams {
 
 // this function need to take streams as an argument as opposed to methods on `Streams`
 // to make `Streams::recalculate` work, dunno if there's a better way
-fn handle_packet(streams: &mut HashMap<u32, Stream>, packet: &Packet) {
+fn handle_packet(streams: &mut HashMap<StreamKey, Stream>, packet: &Packet) {
     match packet.contents {
         SessionPacket::Rtp(ref pack) => {
             let stream = get_stream(
@@ -96,14 +97,15 @@ fn handle_packet(streams: &mut HashMap<u32, Stream>, packet: &Packet) {
 }
 
 fn get_stream(
-    streams: &mut HashMap<u32, Stream>,
+    streams: &mut HashMap<StreamKey, Stream>,
     source_addr: SocketAddr,
     destination_addr: SocketAddr,
     protocol: TransportProtocol,
     ssrc: u32,
 ) -> &mut Stream {
     let streams_len = streams.len();
-    streams.entry(ssrc).or_insert_with(|| {
+    let stream_key = (source_addr, destination_addr, protocol, ssrc);
+    streams.entry(stream_key).or_insert_with(|| {
         Stream::new(
             source_addr,
             destination_addr,

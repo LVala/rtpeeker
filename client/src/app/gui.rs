@@ -12,7 +12,7 @@ use rtcp_packets_table::RtcpPacketsTable;
 use rtp_packets_table::RtpPacketsTable;
 use rtp_streams_table::RtpStreamsTable;
 
-use crate::streams::RefStreams;
+use crate::streams::{RefStreams, StreamKey};
 use rtp_streams_plot::RtpStreamsPlot;
 
 mod packets_table;
@@ -300,6 +300,9 @@ fn side_button(text: &str) -> egui::Button {
         .rounding(egui::Rounding::same(9.0))
 }
 
-pub fn is_stream_visible(streams_visibility: &mut HashMap<u32, bool>, ssrc: u32) -> &mut bool {
-    streams_visibility.entry(ssrc).or_insert(true)
+pub fn is_stream_visible(
+    streams_visibility: &mut HashMap<StreamKey, bool>,
+    key: StreamKey,
+) -> &mut bool {
+    streams_visibility.entry(key).or_insert(true)
 }

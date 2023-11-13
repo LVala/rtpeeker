@@ -236,7 +236,8 @@ impl Stream {
 
         let expected_count = last_sequence_number - first_sequence_number + 1;
 
-        let lost_count = self.rtp_packets.len() - expected_count as usize;
+        // FIXME: this somehow overflows
+        let lost_count = self.rtp_packets.len() as i64 - expected_count as i64;
         self.lost_percentage = lost_count as f64 / self.rtp_packets.len() as f64 * 100.0;
     }
 

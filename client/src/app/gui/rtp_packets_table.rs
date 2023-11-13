@@ -1,5 +1,5 @@
 use super::is_stream_visible;
-use crate::streams::RefStreams;
+use crate::streams::{RefStreams, StreamKey};
 use eframe::epaint::Color32;
 use egui::RichText;
 use egui_extras::{Column, TableBody, TableBuilder};
@@ -8,7 +8,7 @@ use std::collections::HashMap;
 
 pub struct RtpPacketsTable {
     streams: RefStreams,
-    streams_visibility: HashMap<u32, bool>,
+    streams_visibility: HashMap<StreamKey, bool>,
 }
 
 impl RtpPacketsTable {
@@ -28,15 +28,15 @@ impl RtpPacketsTable {
 
     fn options_ui(&mut self, ui: &mut egui::Ui) {
         let streams = self.streams.borrow();
-        let ssrcs: Vec<_> = streams.streams.keys().collect();
+        let stream_keys: Vec<_> = streams.streams.keys().collect();
 
         ui.horizontal_wrapped(|ui| {
             ui.label("Filter by: ");
-            ssrcs.iter().for_each(|&ssrc| {
-                let selected = is_stream_visible(&mut self.streams_visibility, *ssrc);
+            stream_keys.iter().for_each(|&key| {
+                let selected = is_stream_visible(&mut self.streams_visibility, *key);
                 ui.checkbox(
                     selected,
-                    streams.streams.get(ssrc).unwrap().alias.to_string(),
+                    streams.streams.get(key).unwrap().alias.to_string(),
                 );
             });
         });
@@ -95,7 +95,14 @@ impl RtpPacketsTable {
                     return false;
                 };
 
-                *is_stream_visible(&mut self.streams_visibility, rtp_packet.ssrc)
+                let key = (
+                    packet.source_addr,
+                    packet.destination_addr,
+                    packet.transport_protocol,
+                    rtp_packet.ssrc,
+                );
+
+                *is_stream_visible(&mut self.streams_visibility, key)
             })
             .collect();
 
@@ -103,9 +110,9 @@ impl RtpPacketsTable {
             return;
         }
 
-        let mut ssrc_to_display_name: HashMap<&u32, String> = HashMap::default();
-        streams.streams.iter().for_each(|(ssrc, stream)| {
-            ssrc_to_display_name.insert(ssrc, stream.alias.to_string());
+        let mut ssrc_to_display_name: HashMap<StreamKey, String> = HashMap::default();
+        streams.streams.iter().for_each(|(key, stream)| {
+            ssrc_to_display_name.insert(*key, stream.alias.to_string());
         });
 
         let first_ts = rtp_packets.get(0).unwrap().timestamp;
@@ -115,6 +122,13 @@ impl RtpPacketsTable {
             let SessionPacket::Rtp(ref rtp_packet) = packet.contents else {
                 unreachable!();
             };
+
+            let key = (
+                packet.source_addr,
+                packet.destination_addr,
+                packet.transport_protocol,
+                rtp_packet.ssrc,
+            );
 
             row.col(|ui| {
                 ui.label(packet.id.to_string());
@@ -169,12 +183,7 @@ impl RtpPacketsTable {
                 ui.label(format!("{:x}", rtp_packet.ssrc));
             });
             row.col(|ui| {
-                ui.label(
-                    ssrc_to_display_name
-                        .get(&rtp_packet.ssrc)
-                        .unwrap()
-                        .to_string(),
-                );
+                ui.label(ssrc_to_display_name.get(&key).unwrap().to_string());
             });
 
             row.col(|ui| {
