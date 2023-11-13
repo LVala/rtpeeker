@@ -58,8 +58,6 @@ pub struct Stream {
     pub rtp_packets: Vec<RtpInfo>,
     pub rtcp_packets: Vec<RtcpInfo>,
     pub bytes: usize,
-    pub lost_percentage: f64,
-    pub duration: Duration,
     pub cname: Option<String>,
     first_sequence_number: Option<u16>,
     last_sequence_number: Option<u16>,
@@ -84,13 +82,25 @@ impl Stream {
             rtp_packets: Vec::new(),
             rtcp_packets: Vec::new(),
             bytes: 0,
-            lost_percentage: 0.0,
-            duration: Duration::ZERO,
             cname: None,
             first_sequence_number: None,
             last_sequence_number: None,
             first_time: None,
             last_time: None,
+        }
+    }
+
+    pub fn get_duration(&self) -> Option<Duration> {
+        match (self.first_time, self.last_time) {
+            (Some(first), Some(last)) => Some(last.checked_sub(first).unwrap()),
+            _ => None,
+        }
+    }
+
+    pub fn get_expected_count(&self) -> Option<u16> {
+        match (self.first_sequence_number, self.last_sequence_number) {
+            (Some(first), Some(last)) => Some(last + 1 - first),
+            _ => None,
         }
     }
 
@@ -140,15 +150,9 @@ impl Stream {
             _ => Some(rtp_info.packet.sequence_number),
         };
 
-        // update_prev_lost and update_duration requires
-        // first_X/last_X updated
+        // update_prev_lost first_X/last_X updated
         self.update_prev_lost(&mut rtp_info);
-        self.update_duration();
-
         self.rtp_packets.push(rtp_info);
-
-        //  update_lost_percentage requires packet pushed to rtp_packet
-        self.update_lost_percentage();
     }
 
     fn update_jitter(&self, rtp_info: &mut RtpInfo) {
@@ -221,24 +225,6 @@ impl Stream {
                     pack.prev_lost = false;
                 }
             });
-    }
-
-    fn update_duration(&mut self) {
-        let first_time = self.first_time.unwrap();
-        let last_time = self.last_time.unwrap();
-
-        self.duration = last_time.checked_sub(first_time).unwrap();
-    }
-
-    fn update_lost_percentage(&mut self) {
-        let first_sequence_number = self.first_sequence_number.unwrap();
-        let last_sequence_number = self.last_sequence_number.unwrap();
-
-        let expected_count = last_sequence_number - first_sequence_number + 1;
-
-        // FIXME: this somehow overflows
-        let lost_count = self.rtp_packets.len() as i64 - expected_count as i64;
-        self.lost_percentage = lost_count as f64 / self.rtp_packets.len() as f64 * 100.0;
     }
 
     fn update_sdes_items(&mut self, source_description: &SourceDescription) {

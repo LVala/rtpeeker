@@ -16,8 +16,6 @@ pub type StreamKey = (SocketAddr, SocketAddr, TransportProtocol, u32);
 #[derive(Debug, Default)]
 pub struct Streams {
     pub packets: Packets,
-    // FIXME: there's small chance for SSRC collision
-    // so the key should be (source, dest, proto, ssrc)
     pub streams: HashMap<StreamKey, Stream>,
 }
 
@@ -59,7 +57,7 @@ impl Streams {
 fn handle_packet(streams: &mut HashMap<StreamKey, Stream>, packet: &Packet) {
     match packet.contents {
         SessionPacket::Rtp(ref pack) => {
-            let stream = get_stream(
+            let stream = get_or_create_stream(
                 streams,
                 packet.source_addr,
                 packet.destination_addr,
@@ -80,14 +78,16 @@ fn handle_packet(streams: &mut HashMap<StreamKey, Stream>, packet: &Packet) {
                 };
 
                 for ssrc in ssrcs {
-                    let stream = get_stream(
+                    let maybe_stream = get_rtcp_stream(
                         streams,
                         packet.source_addr,
                         packet.destination_addr,
                         packet.transport_protocol,
                         ssrc,
                     );
-                    stream.add_rtcp_packet(packet.id, packet.timestamp, pack);
+                    if let Some(stream) = maybe_stream {
+                        stream.add_rtcp_packet(packet.id, packet.timestamp, pack);
+                    }
                 }
             }
         }
@@ -96,7 +96,7 @@ fn handle_packet(streams: &mut HashMap<StreamKey, Stream>, packet: &Packet) {
     };
 }
 
-fn get_stream(
+fn get_or_create_stream(
     streams: &mut HashMap<StreamKey, Stream>,
     source_addr: SocketAddr,
     destination_addr: SocketAddr,
@@ -114,6 +114,24 @@ fn get_stream(
             int_to_letter(streams_len),
         )
     })
+}
+
+fn get_rtcp_stream(
+    streams: &mut HashMap<StreamKey, Stream>,
+    mut source_addr: SocketAddr,
+    mut destination_addr: SocketAddr,
+    protocol: TransportProtocol,
+    ssrc: u32,
+) -> Option<&mut Stream> {
+    let key_same_port = (source_addr, destination_addr, protocol, ssrc);
+    if streams.contains_key(&key_same_port) {
+        streams.get_mut(&key_same_port)
+    } else {
+        source_addr.set_port(source_addr.port() + 1);
+        destination_addr.set_port(destination_addr.port() + 1);
+        let key_next_port = (source_addr, destination_addr, protocol, ssrc);
+        streams.get_mut(&key_next_port)
+    }
 }
 
 fn int_to_letter(unique_id: usize) -> String {
