@@ -11,19 +11,12 @@ impl Packets {
         self.packets.get(&id)
     }
 
-    pub fn get_mut(&mut self, id: usize) -> Option<&mut Packet> {
-        self.packets.get_mut(&id)
-    }
-
     pub fn values(&self) -> Values<'_, usize, Packet> {
         self.packets.values()
     }
 
     pub fn is_new(&self, packet: &Packet) -> bool {
-        match self.packets.last_key_value() {
-            Some((id, _)) => packet.id > *id,
-            None => true,
-        }
+        !self.packets.contains_key(&packet.id)
     }
 
     pub fn len(&self) -> usize {

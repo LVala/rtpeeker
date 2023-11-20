@@ -1,7 +1,4 @@
-use std::ops::Div;
-
-use eframe::egui::plot::{Line, Plot, PlotPoints};
-use egui::{Color32, RichText, TextEdit, Vec2};
+use egui::TextEdit;
 use egui_extras::{Column, TableBody, TableBuilder};
 
 use crate::streams::RefStreams;
@@ -29,7 +26,7 @@ impl RtpStreamsTable {
             ("Destination", "Destination IP address and port"),
             ("Number of packets", "Number of packets in stream"),
             ("Duration", "Difference between last timestamp and first timestamp."),
-            ("Lost packets", "Difference between last timestamp and first timestamp."),
+            ("Expected packets", "Difference between last timestamp and first timestamp."),
             ("Jitter", ""),
             ("Jitter plot", ""),
         ];
@@ -55,14 +52,14 @@ impl RtpStreamsTable {
 
     fn build_table_body(&mut self, body: TableBody) {
         let mut streams = self.streams.borrow_mut();
-        let ssrcs: Vec<_> = streams.streams.keys().cloned().collect();
+        let keys: Vec<_> = streams.streams.keys().cloned().collect();
 
         body.rows(100.0, streams.streams.len(), |id, mut row| {
-            let stream_ssrc = ssrcs.get(id).unwrap();
-            let stream = streams.streams.get_mut(stream_ssrc).unwrap();
+            let key = keys.get(id).unwrap();
+            let stream = streams.streams.get_mut(key).unwrap();
 
             row.col(|ui| {
-                let text_edit = TextEdit::singleline(&mut stream.display_name).frame(false);
+                let text_edit = TextEdit::singleline(&mut stream.alias).frame(false);
                 ui.add(text_edit);
             });
 
@@ -79,61 +76,10 @@ impl RtpStreamsTable {
                 ui.label(stream.rtp_packets.len().to_string());
             });
             row.col(|ui| {
-                ui.label(format!("{:?}", stream.duration));
+                ui.label(format!("{:?}", stream.get_duration()));
             });
             row.col(|ui| {
-                let color = if stream.lost_percentage <= 0.3 {
-                    Color32::GREEN
-                } else if stream.lost_percentage <= 2.0 {
-                    Color32::GOLD
-                } else {
-                    Color32::RED
-                };
-                ui.label(RichText::from(format!("{:.2}%", stream.lost_percentage)).color(color));
-            });
-            row.col(|ui| {
-                let color = if stream.jitter_in_ms <= 1.0 {
-                    Color32::GREEN
-                } else if stream.jitter_in_ms <= 5.0 {
-                    Color32::GOLD
-                } else {
-                    Color32::RED
-                };
-                ui.label(
-                    RichText::from(format!("{:.8}ms", stream.jitter_in_ms.to_string()))
-                        .color(color),
-                );
-            });
-            row.col(|ui| {
-                ui.vertical_centered_justified(|ui| {
-                    let points: PlotPoints = (0..stream.jitter_history.len())
-                        .map(|i| [i as f64, *stream.jitter_history.get(i).unwrap()])
-                        .collect();
-
-                    let zero_axis: PlotPoints = (0..(stream.jitter_history.len()
-                        + (stream.jitter_history.len().div(5))))
-                        .map(|i| [i as f64, 0.0])
-                        .collect();
-
-                    let line = Line::new(points).name("jitter");
-                    let line_zero_axis = Line::new(zero_axis).color(Color32::GRAY);
-                    Plot::new(id.to_string())
-                        .show_background(false)
-                        .show_axes([false, false])
-                        .label_formatter(|name, value| {
-                            if name.ne("jitter") || value.x.fract() != 0.0 {
-                                return "".to_string();
-                            }
-                            format!("packet number = {}\njitter = {:.5}ms", value.x, value.y)
-                        })
-                        .set_margin_fraction(Vec2::new(0.1, 0.1))
-                        .allow_scroll(false)
-                        .show(ui, |plot_ui| {
-                            plot_ui.line(line_zero_axis);
-                            plot_ui.line(line);
-                        });
-                    ui.add_space(7.0);
-                });
+                ui.label(format!("{:?}", stream.get_expected_count()));
             });
         });
     }

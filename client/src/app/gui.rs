@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt;
 
 use eframe::egui;
@@ -11,7 +12,7 @@ use rtcp_packets_table::RtcpPacketsTable;
 use rtp_packets_table::RtpPacketsTable;
 use rtp_streams_table::RtpStreamsTable;
 
-use crate::streams::RefStreams;
+use crate::streams::{RefStreams, StreamKey};
 use rtp_streams_plot::RtpStreamsPlot;
 
 mod packets_table;
@@ -297,4 +298,11 @@ fn side_button(text: &str) -> egui::Button {
     egui::Button::new(text)
         .min_size((30.0, 30.0).into())
         .rounding(egui::Rounding::same(9.0))
+}
+
+pub fn is_stream_visible(
+    streams_visibility: &mut HashMap<StreamKey, bool>,
+    key: StreamKey,
+) -> &mut bool {
+    streams_visibility.entry(key).or_insert(true)
 }
