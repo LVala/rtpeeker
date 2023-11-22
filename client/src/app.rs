@@ -22,6 +22,9 @@ mod rtp_streams_plot;
 mod rtp_streams_table;
 mod tab;
 
+const SOURCE_KEY: &str = "source";
+const TAB_KEY: &str = "tab";
+
 pub struct App {
     ws_sender: WsSender,
     ws_receiver: WsReceiver,
@@ -42,8 +45,22 @@ pub struct App {
 }
 
 impl eframe::App for App {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        self.ui(ctx);
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        if self.is_capturing {
+            self.receive_packets()
+        }
+
+        self.build_side_panel(ctx);
+        self.build_top_bar(ctx, frame);
+        self.build_bottom_bar(ctx);
+
+        match self.tab {
+            Tab::Packets => self.packets_table.ui(ctx),
+            Tab::RtpPackets => self.rtp_packets_table.ui(ctx),
+            Tab::RtcpPackets => self.rtcp_packets_table.ui(ctx),
+            Tab::Streams => self.rtp_streams_table.ui(ctx),
+            Tab::Plot => self.rtp_streams_plot.ui(ctx),
+        };
     }
 }
 
@@ -65,38 +82,22 @@ impl App {
         let rtp_streams_table = RtpStreamsTable::new(streams.clone());
         let rtp_streams_plot = RtpStreamsPlot::new(streams.clone());
 
+        let (tab, selected_source) = get_initial_state(cc);
+
         Self {
             ws_sender,
             ws_receiver,
             is_capturing: true,
             streams,
             sources: Vec::new(),
-            selected_source: None,
-            tab: Tab::Packets,
+            selected_source,
+            tab,
             packets_table,
             rtp_packets_table,
             rtcp_packets_table,
             rtp_streams_table,
             rtp_streams_plot,
         }
-    }
-
-    pub fn ui(&mut self, ctx: &egui::Context) {
-        if self.is_capturing {
-            self.receive_packets()
-        }
-
-        self.build_side_panel(ctx);
-        self.build_top_bar(ctx);
-        self.build_bottom_bar(ctx);
-
-        match self.tab {
-            Tab::Packets => self.packets_table.ui(ctx),
-            Tab::RtpPackets => self.rtp_packets_table.ui(ctx),
-            Tab::RtcpPackets => self.rtcp_packets_table.ui(ctx),
-            Tab::Streams => self.rtp_streams_table.ui(ctx),
-            Tab::Plot => self.rtp_streams_plot.ui(ctx),
-        };
     }
 
     fn build_side_panel(&mut self, ctx: &egui::Context) {
@@ -156,10 +157,10 @@ impl App {
                 });
             });
     }
-    fn build_top_bar(&mut self, ctx: &egui::Context) {
+    fn build_top_bar(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
-                self.build_dropdown_source(ui);
+                self.build_dropdown_source(ui, frame);
                 ui.separator();
                 Tab::all().iter().for_each(|tab| {
                     if ui
@@ -167,13 +168,16 @@ impl App {
                         .clicked()
                     {
                         self.tab = *tab;
+                        if let Some(storage) = frame.storage_mut() {
+                            storage.set_string(TAB_KEY, self.tab.to_string());
+                        }
                     }
                 });
             });
         });
     }
 
-    fn build_dropdown_source(&mut self, ui: &mut Ui) {
+    fn build_dropdown_source(&mut self, ui: &mut Ui, frame: &mut eframe::Frame) {
         let selected = match self.selected_source {
             Some(ref source) => source.to_string(),
             None => "Select packets source...".to_string(),
@@ -200,6 +204,10 @@ impl App {
                 if was_changed {
                     self.streams.borrow_mut().clear();
                     self.change_source_request();
+                    if let Some(storage) = frame.storage_mut() {
+                        let source = self.selected_source.as_ref().unwrap();
+                        storage.set_string(SOURCE_KEY, source.to_string());
+                    }
                 }
             });
     }
@@ -246,6 +254,13 @@ impl App {
                     self.streams.borrow_mut().add_packet(packet);
                 }
                 Response::Sources(sources) => {
+                    if let Some(ref source) = self.selected_source {
+                        if !sources.contains(source) {
+                            self.selected_source = None;
+                        } else {
+                            self.change_source_request();
+                        }
+                    }
                     self.sources = sources;
                 }
             }
@@ -272,6 +287,24 @@ impl App {
         };
         let msg = WsMessage::Binary(msg);
         self.ws_sender.send(msg);
+    }
+}
+
+fn get_initial_state(cc: &eframe::CreationContext<'_>) -> (Tab, Option<Source>) {
+    if let Some(storage) = cc.storage {
+        let tab = match storage.get_string(TAB_KEY) {
+            Some(tab_str) => Tab::from_string(tab_str).unwrap(),
+            _ => Tab::Packets,
+        };
+
+        let source = match storage.get_string(SOURCE_KEY) {
+            Some(src_str) => Source::from_string(src_str),
+            _ => None,
+        };
+
+        (tab, source)
+    } else {
+        (Tab::Packets, None)
     }
 }
 
