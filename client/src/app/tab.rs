@@ -19,6 +19,12 @@ impl Tab {
             Self::Plot,
         ]
     }
+
+    pub fn from_string(tab_str: String) -> Option<Self> {
+        Tab::all()
+            .into_iter()
+            .find(|tab| tab_str == tab.to_string())
+    }
 }
 
 impl fmt::Display for Tab {
