@@ -1,122 +1,248 @@
-use rtpeeker_common::packet::SessionPacket;
-use rtpeeker_common::{Packet, RtpPacket};
+use rtpeeker_common::packet::TransportProtocol;
+use rtpeeker_common::rtcp::{source_description::SdesType, SourceDescription};
+use rtpeeker_common::{RtcpPacket, RtpPacket};
 use std::net::SocketAddr;
 use std::time::Duration;
 
 #[derive(Debug)]
+pub struct RtcpInfo {
+    pub packet: RtcpPacket,
+    pub id: usize,
+    pub time: Duration,
+}
+
+impl RtcpInfo {
+    pub fn new(packet: &RtcpPacket, id: usize, time: Duration) -> Self {
+        Self {
+            packet: packet.clone(),
+            id,
+            time,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct RtpInfo {
+    pub packet: RtpPacket,
+    pub id: usize,
+    pub time: Duration,
+    pub jitter: Option<f64>,
+    pub prev_lost: bool,
+    // bitrate the last second, in bits per second
+    pub bitrate: usize,
+    // per second
+    pub packet_rate: usize,
+}
+
+impl RtpInfo {
+    pub fn new(packet: &RtpPacket, id: usize, time: Duration) -> Self {
+        Self {
+            packet: packet.clone(),
+            id,
+            time,
+            jitter: None,
+            prev_lost: true,
+            bitrate: 0,
+            packet_rate: 0,
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct Stream {
-    pub rtp_packets: Vec<usize>,
-    pub rtcp_packets: Vec<usize>,
     pub source_addr: SocketAddr,
     pub destination_addr: SocketAddr,
+    pub protocol: TransportProtocol,
     pub ssrc: u32,
-    pub jitter_in_ms: f64,
-    pub jitter_history: Vec<f64>,
-    pub lost_percentage: f64,
-    pub duration: Duration,
-    pub display_name: String,
-    payload_type: u8,
-    previous_timestamp: Option<Duration>,
-    previous_rtp_timestamp: Option<f64>,
+    pub alias: String,
+    pub rtp_packets: Vec<RtpInfo>,
+    pub rtcp_packets: Vec<RtcpInfo>,
+    pub bytes: usize,
+    pub cname: Option<String>,
     first_sequence_number: Option<u16>,
-    first_timestamp: Option<Duration>,
+    last_sequence_number: Option<u16>,
+    first_time: Option<Duration>,
+    last_time: Option<Duration>,
 }
 
 impl Stream {
     pub fn new(
         source_addr: SocketAddr,
         destination_addr: SocketAddr,
+        protocol: TransportProtocol,
         ssrc: u32,
-        payload_type: u8,
-        display_name: String,
+        default_alias: String,
     ) -> Self {
         Self {
-            rtp_packets: Vec::new(),
-            rtcp_packets: Vec::new(),
             source_addr,
             destination_addr,
+            protocol,
             ssrc,
-            jitter_in_ms: 0.0,
-            jitter_history: vec![0.0],
-            lost_percentage: 0.0,
-            duration: Duration::ZERO,
-            display_name,
-            payload_type,
-            previous_timestamp: None,
-            previous_rtp_timestamp: None,
+            alias: default_alias,
+            rtp_packets: Vec::new(),
+            rtcp_packets: Vec::new(),
+            bytes: 0,
+            cname: None,
             first_sequence_number: None,
-            first_timestamp: None,
+            last_sequence_number: None,
+            first_time: None,
+            last_time: None,
         }
     }
 
-    pub fn add_rtp_packet(&mut self, packet: &Packet, _rtp: &RtpPacket) {
-        self.rtp_packets.push(packet.id);
-        if self.first_timestamp.is_none() {
-            self.first_timestamp = Some(packet.timestamp)
+    pub fn get_duration(&self) -> Option<Duration> {
+        match (self.first_time, self.last_time) {
+            (Some(first), Some(last)) => Some(last.checked_sub(first).unwrap()),
+            _ => None,
         }
-        self.calculate_jitter(packet);
-        self.calculate_lost_percentage(packet);
-        self.calculate_duration(packet);
     }
 
-    pub fn add_rtcp_packet(&mut self, packet: &Packet) {
-        self.rtcp_packets.push(packet.id);
+    pub fn get_expected_count(&self) -> Option<u16> {
+        match (self.first_sequence_number, self.last_sequence_number) {
+            (Some(first), Some(last)) => Some(last + 1 - first),
+            _ => None,
+        }
     }
 
-    fn calculate_lost_percentage(&mut self, packet: &Packet) {
-        let SessionPacket::Rtp(ref rtp) = packet.contents else {
-            unreachable!();
-        };
-        let Some(first_sequence_number) = self.first_sequence_number else {
-            self.first_sequence_number = Some(rtp.sequence_number);
-            return;
-        };
-
-        let number_of_packets = self.rtp_packets.len() as f64;
-        let last_sequence_number = rtp.sequence_number as f64;
-        let expected_number_of_packets = last_sequence_number - first_sequence_number as f64 + 1.0;
-        self.lost_percentage = 100.0 - (number_of_packets / expected_number_of_packets) * 100.0;
+    pub fn add_rtp_packet(&mut self, id: usize, timestamp: Duration, packet: &RtpPacket) {
+        let rtp_info = RtpInfo::new(packet, id, timestamp);
+        self.update_rtp_parameters(rtp_info);
     }
 
-    fn calculate_jitter(&mut self, packet: &Packet) {
-        let SessionPacket::Rtp(ref rtp) = packet.contents else {
-            unreachable!();
-        };
-
-        let Some(last_timestamp) = self.previous_timestamp else {
-            self.previous_timestamp = Some(packet.timestamp);
-            self.previous_rtp_timestamp = Some(rtp.timestamp as f64);
-            return;
-        };
-
-        if rtp.payload_type.clock_rate.is_none() || rtp.payload_type.id != self.payload_type {
-            self.payload_type = rtp.payload_type.id;
-            self.jitter_in_ms = 0.0;
-            self.jitter_history.clear()
-        } else {
-            // RFC 3550
-            let clock_rate = rtp.payload_type.clock_rate.unwrap();
-            let unit_timestamp = 1.0 / clock_rate as f64;
-            let arrival_time_difference_result = packet.timestamp.checked_sub(last_timestamp);
-            if let Some(arrival_time_difference) = arrival_time_difference_result {
-                let timestamp_difference = rtp.timestamp as f64 * unit_timestamp
-                    - self.previous_rtp_timestamp.unwrap() * unit_timestamp;
-                let d_in_sec = arrival_time_difference.as_secs_f64() - timestamp_difference;
-                let d_in_ms = d_in_sec.abs() * 1000.0;
-
-                self.jitter_in_ms = self.jitter_in_ms + (d_in_ms - self.jitter_in_ms) / 16.0;
-                self.jitter_history.push(self.jitter_in_ms);
+    pub fn add_rtcp_packet(&mut self, id: usize, timestamp: Duration, packet: &RtcpPacket) {
+        match &packet {
+            RtcpPacket::SourceDescription(sd) => self.update_sdes_items(sd),
+            RtcpPacket::ReceiverReport(_rr) => {}
+            RtcpPacket::SenderReport(_sr) => {
+                // TODO handle wallclock time etc
+                // TODO handle reception reports
             }
+            _ => {}
         }
 
-        self.previous_timestamp = Some(packet.timestamp);
-        self.previous_rtp_timestamp = Some(rtp.timestamp as f64);
+        let rtcp_info = RtcpInfo::new(packet, id, timestamp);
+        self.rtcp_packets.push(rtcp_info);
     }
 
-    fn calculate_duration(&mut self, packet: &Packet) {
-        self.duration = packet
-            .timestamp
-            .checked_sub(self.first_timestamp.unwrap())
-            .unwrap_or(Duration::ZERO)
+    fn update_rtp_parameters(&mut self, mut rtp_info: RtpInfo) {
+        self.update_jitter(&mut rtp_info);
+        self.update_rates(&mut rtp_info);
+
+        self.bytes += rtp_info.packet.payload_length;
+
+        self.first_time = match self.first_time {
+            Some(ft) if ft < rtp_info.time => Some(ft),
+            _ => Some(rtp_info.time),
+        };
+
+        self.last_time = match self.last_time {
+            Some(ft) if ft > rtp_info.time => Some(ft),
+            _ => Some(rtp_info.time),
+        };
+
+        self.first_sequence_number = match self.first_sequence_number {
+            Some(fsn) if fsn < rtp_info.packet.sequence_number => Some(fsn),
+            _ => Some(rtp_info.packet.sequence_number),
+        };
+
+        self.last_sequence_number = match self.last_sequence_number {
+            Some(fsn) if fsn > rtp_info.packet.sequence_number => Some(fsn),
+            _ => Some(rtp_info.packet.sequence_number),
+        };
+
+        // update_prev_lost first_X/last_X updated
+        self.update_prev_lost(&mut rtp_info);
+        self.rtp_packets.push(rtp_info);
+    }
+
+    fn update_jitter(&self, rtp_info: &mut RtpInfo) {
+        let Some(clock_rate) = rtp_info.packet.payload_type.clock_rate else {
+            return;
+        };
+
+        let Some(prev_rtp_info) = self.rtp_packets.last() else {
+            // rtp_info is the first packet
+            rtp_info.jitter = Some(0.0);
+            return;
+        };
+
+        let is_new = rtp_info.packet.payload_type.id != prev_rtp_info.packet.payload_type.id;
+        if is_new {
+            rtp_info.jitter = Some(0.0);
+            return;
+        }
+
+        let unit = 1.0 / clock_rate as f64;
+        let arrival_diff = rtp_info
+            .time
+            .checked_sub(prev_rtp_info.time)
+            .unwrap()
+            .as_secs_f64();
+        let rtp_timestamp_diff =
+            (rtp_info.packet.timestamp as i64 - prev_rtp_info.packet.timestamp as i64) as f64;
+        let diff = arrival_diff - rtp_timestamp_diff * unit;
+
+        let prev_jitter = prev_rtp_info.jitter.unwrap();
+        let jitter = prev_jitter + (diff - prev_jitter) / 16.0;
+
+        rtp_info.jitter = Some(jitter);
+    }
+
+    fn update_rates(&self, rtp_info: &mut RtpInfo) {
+        let cutoff = rtp_info.time.checked_sub(Duration::from_secs(1)).unwrap();
+
+        let last_second_packets = self.rtp_packets.iter().rev().map_while(|pack| match pack {
+            RtpInfo { time, .. } if *time > cutoff => Some(pack.packet.payload_length),
+            _ => None,
+        });
+
+        // remember to include the `rtp_info` packet
+        // as it hasn't been placed in `rtp_packets` yet
+        rtp_info.packet_rate = last_second_packets.clone().count() + 1;
+
+        let bytes = last_second_packets.sum::<usize>() + rtp_info.packet.payload_length;
+        rtp_info.bitrate = bytes * 8;
+    }
+
+    fn update_prev_lost(&mut self, rtp_info: &mut RtpInfo) {
+        let first_sn = self.first_sequence_number.unwrap();
+        if rtp_info.packet.sequence_number == first_sn {
+            rtp_info.prev_lost = false;
+            return;
+        }
+
+        self.rtp_packets
+            .iter_mut()
+            .rev()
+            // FIXME: we only check last 10 packets, may lead to bugs
+            .take(10)
+            .for_each(|pack| {
+                if pack.packet.sequence_number + 1 == rtp_info.packet.sequence_number {
+                    rtp_info.prev_lost = false;
+                }
+
+                if pack.packet.sequence_number == rtp_info.packet.sequence_number + 1 {
+                    pack.prev_lost = false;
+                }
+            });
+    }
+
+    fn update_sdes_items(&mut self, source_description: &SourceDescription) {
+        // if we added this packet, one of the chunk's sources must be our ssrc
+        // thus the unwrap
+        let chunk = source_description
+            .chunks
+            .iter()
+            .find(|chunk| chunk.source == self.ssrc)
+            .unwrap();
+
+        let cname = chunk
+            .items
+            .iter()
+            .find(|item| item.sdes_type == SdesType::Cname);
+
+        if let Some(cname_val) = cname {
+            self.cname = Some(cname_val.text.clone());
+        }
     }
 }

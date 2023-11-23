@@ -15,6 +15,24 @@ pub enum Source {
     Interface(String),
 }
 
+impl Source {
+    pub fn from_string(src_str: String) -> Option<Self> {
+        let words: Vec<_> = src_str.split(' ').collect();
+
+        if words.len() != 2 {
+            return None;
+        }
+
+        let name = words.last().unwrap().to_string();
+
+        match *words.first().unwrap() {
+            "📁" => Some(Source::File(name)),
+            "🌐" => Some(Source::Interface(name)),
+            _ => None,
+        }
+    }
+}
+
 impl fmt::Display for Source {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let (icon, name) = match self {
