@@ -56,15 +56,20 @@ impl Streams {
 // to make `Streams::recalculate` work, dunno if there's a better way
 fn handle_packet(streams: &mut HashMap<StreamKey, Stream>, packet: &Packet) {
     match packet.contents {
-        SessionPacket::Rtp(ref pack) => {
-            let stream = get_or_create_stream(
-                streams,
+        SessionPacket::Rtp(ref rtp) => {
+            let stream_key = (
                 packet.source_addr,
                 packet.destination_addr,
                 packet.transport_protocol,
-                pack.ssrc,
+                rtp.ssrc,
             );
-            stream.add_rtp_packet(packet.id, packet.timestamp, pack);
+
+            if let Some(stream) = streams.get_mut(&stream_key) {
+                stream.add_rtp_packet(packet.id, packet.timestamp, rtp);
+            } else {
+                let new_stream = Stream::new(packet, rtp, int_to_letter(streams.len()));
+                streams.insert(stream_key, new_stream);
+            }
         }
         SessionPacket::Rtcp(ref packs) => {
             for pack in packs {
@@ -94,26 +99,6 @@ fn handle_packet(streams: &mut HashMap<StreamKey, Stream>, packet: &Packet) {
         // Ignoring other types of RTCP packet for now
         _ => {}
     };
-}
-
-fn get_or_create_stream(
-    streams: &mut HashMap<StreamKey, Stream>,
-    source_addr: SocketAddr,
-    destination_addr: SocketAddr,
-    protocol: TransportProtocol,
-    ssrc: u32,
-) -> &mut Stream {
-    let streams_len = streams.len();
-    let stream_key = (source_addr, destination_addr, protocol, ssrc);
-    streams.entry(stream_key).or_insert_with(|| {
-        Stream::new(
-            source_addr,
-            destination_addr,
-            protocol,
-            ssrc,
-            int_to_letter(streams_len),
-        )
-    })
 }
 
 fn get_rtcp_stream(

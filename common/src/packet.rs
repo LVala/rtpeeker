@@ -187,6 +187,9 @@ fn is_rtp(packet: &RtpPacket) -> bool {
     if let 72..=76 = packet.payload_type.id {
         return false;
     }
+    if packet.ssrc == 0 {
+        return false;
+    }
 
     true
 }
