@@ -1,30 +1,21 @@
-use std::fmt;
-use std::time::Duration;
-
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SourceDescription {
     pub chunks: Vec<SourceDescriptionChunk>,
-    pub timestamp: Duration,
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 impl SourceDescription {
-    pub fn new(
-        source_description: &rtcp::source_description::SourceDescription,
-        packet: &Packet,
-    ) -> Self {
-        let chunks = source_description
+    pub fn new(packet: &rtcp::source_description::SourceDescription) -> Self {
+        let chunks = packet
             .chunks
             .iter()
             .map(SourceDescriptionChunk::new)
             .collect();
 
-        Self {
-            chunks,
-            timestamp: packet.timestamp,
-        }
+        Self { chunks }
     }
 }
 
