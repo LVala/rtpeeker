@@ -404,11 +404,11 @@ fn build_stream_points(
                 }
                 on_hover
             }
-            RtcpPacket::ApplicationDefined() => String::from("Goodbye"),
-            RtcpPacket::PayloadSpecificFeedback() => String::from("Payload specific feedback"),
-            RtcpPacket::TransportSpecificFeedback() => String::from("Transport specific feedback"),
-            RtcpPacket::ExtendedReport() => String::from("Extended report"),
-            RtcpPacket::Other() => String::from("Other rtcp"),
+            RtcpPacket::ApplicationDefined => String::from("Goodbye"),
+            RtcpPacket::PayloadSpecificFeedback => String::from("Payload specific feedback"),
+            RtcpPacket::TransportSpecificFeedback => String::from("Transport specific feedback"),
+            RtcpPacket::ExtendedReport => String::from("Extended report"),
+            RtcpPacket::Other => String::from("Other rtcp"),
         };
         let x = rtcp_info.time.as_secs_f64() - first_packet.timestamp.as_secs_f64();
         let y = if let Some(last_position) = points_x_and_y_top.last() {
