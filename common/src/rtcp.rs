@@ -5,6 +5,7 @@ pub use sender_report::SenderReport;
 use serde::{Deserialize, Serialize};
 pub use source_description::SourceDescription;
 
+pub mod goodbye;
 pub mod receiver_report;
 pub mod reception_report;
 pub mod sender_report;
