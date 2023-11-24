@@ -60,9 +60,7 @@ impl RtcpPacket {
 
         let packets: Vec<_> = rtcp_packets
             .into_iter()
-            .map(|(rtcp_packet, packet_type)| {
-                Self::cast_to_packet(packet, rtcp_packet, packet_type)
-            })
+            .map(|(packet, packet_type)| Self::cast_to_packet(packet, packet_type))
             .collect();
 
         Some(packets)
