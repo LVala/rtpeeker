@@ -134,7 +134,7 @@ impl RtpStreamsPlot {
                 });
             });
             ui.vertical(|ui| {
-                ui.label("The color of dot presents:");
+                ui.label("The color of a dot presents:");
                 ui.horizontal(|ui| {
                     ui.label(RichText::from("\t🔴").color(Color32::RED));
                     ui.label("Ordinary RTP packet");
