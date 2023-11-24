@@ -1,7 +1,6 @@
 use std::fmt;
 use std::time::Duration;
 
-use crate::Packet;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

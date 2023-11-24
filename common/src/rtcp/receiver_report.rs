@@ -4,8 +4,6 @@ use serde::{Deserialize, Serialize};
 
 use super::reception_report::ReceptionReport;
 
-use crate::Packet;
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ReceiverReport {
     pub ssrc: u32,
