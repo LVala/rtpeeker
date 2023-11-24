@@ -119,7 +119,7 @@ impl RtpStreamsPlot {
                 ui.horizontal(|ui| {
                     ui.add_space(0.8);
                     ui.label(RichText::from("     🔴").color(Color32::RED));
-                    ui.label("Dot at the end of a line represents packet arrived");
+                    ui.label("End of a packet");
                 });
                 ui.label(RichText::from("       |").color(Color32::RED));
                 ui.horizontal(|ui| {
