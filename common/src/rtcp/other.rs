@@ -2,8 +2,6 @@ use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 
-use crate::Packet;
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Other {
     pub timestamp: Duration,
