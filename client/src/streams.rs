@@ -75,7 +75,6 @@ fn handle_packet(streams: &mut HashMap<StreamKey, Stream>, packet: &Packet) {
                         sd.chunks.iter().map(|chunk| chunk.source).collect()
                     }
                     // TODO DAMIAN what about others?
-
                     _ => Vec::new(),
                 };
 
@@ -150,8 +149,6 @@ fn handle_packet(streams: &mut HashMap<StreamKey, Stream>, packet: &Packet) {
                 //         }
                 //     });
                 // }
-
-
                 for ssrc in ssrcs {
                     let maybe_stream = get_rtcp_stream(
                         streams,
