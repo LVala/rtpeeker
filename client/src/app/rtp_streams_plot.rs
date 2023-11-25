@@ -363,10 +363,12 @@ fn build_stream_points(
         unreachable!();
     };
 
+    let mut on_hover = String::new();
+    let mut maybe_prev_id = None;
+
     rtcp_packets.iter().for_each(|rtcp_info| {
-        let on_hover = match &rtcp_info.packet {
+        match &rtcp_info.packet {
             RtcpPacket::SenderReport(sender_report) => {
-                let mut on_hover = String::new();
                 on_hover.push_str("Sender Report\n\n");
                 on_hover.push_str(&format!("Source: {:x}\n", sender_report.ssrc));
                 on_hover.push_str(&format!("NTP time: {}\n", sender_report.ntp_time));
@@ -374,19 +376,17 @@ fn build_stream_points(
                 for report in &sender_report.reports {
                     build_reception_report(&mut on_hover, &report);
                 }
-                on_hover
+                on_hover.push_str("------------------------\n");
             }
             RtcpPacket::ReceiverReport(receiver_report) => {
-                let mut on_hover = String::new();
                 on_hover.push_str("Receiver Report\n\n");
                 on_hover.push_str(&format!("Source: {:x}\n", receiver_report.ssrc));
                 for report in &receiver_report.reports {
                     build_reception_report(&mut on_hover, &report);
                 }
-                on_hover
+                on_hover.push_str("------------------------\n");
             }
             RtcpPacket::SourceDescription(source_description) => {
-                let mut on_hover = String::new();
                 on_hover.push_str("Source Description\n\n");
                 for chunk in &source_description.chunks {
                     on_hover.push_str(&format!("Source: {:x}\n", chunk.source));
@@ -394,22 +394,36 @@ fn build_stream_points(
                         on_hover.push_str(&format!("{}: {}\n", item.sdes_type, item.text));
                     }
                 }
-                on_hover
+                on_hover.push_str("------------------------\n");
             }
             RtcpPacket::Goodbye(goodbye) => {
-                let mut on_hover = String::new();
                 on_hover.push_str("Goodbye\n\n");
                 for source in &goodbye.sources {
                     on_hover.push_str(&format!("Source: {:x}", source));
                     on_hover.push_str(&format!("Reason: {}", goodbye.reason));
                 }
-                on_hover
+                on_hover.push_str("------------------------\n");
             }
-            RtcpPacket::ApplicationDefined => String::from("Goodbye"),
-            RtcpPacket::PayloadSpecificFeedback => String::from("Payload specific feedback"),
-            RtcpPacket::TransportSpecificFeedback => String::from("Transport specific feedback"),
-            RtcpPacket::ExtendedReport => String::from("Extended report"),
-            RtcpPacket::Other => String::from("Other rtcp"),
+            RtcpPacket::ApplicationDefined => {
+                on_hover.push_str("\nGoodbye\n");
+                on_hover.push_str("------------------------\n");
+            }
+            RtcpPacket::PayloadSpecificFeedback => {
+                on_hover.push_str("\nPayload specific feedback\n");
+                on_hover.push_str("------------------------\n");
+            }
+            RtcpPacket::TransportSpecificFeedback => {
+                on_hover.push_str("\nTransport specific feedback\n");
+                on_hover.push_str("------------------------\n");
+            }
+            RtcpPacket::ExtendedReport => {
+                on_hover.push_str("\nExtended report\n");
+                on_hover.push_str("------------------------\n");
+            }
+            RtcpPacket::Other => {
+                on_hover.push_str("\nOther rtcp\n");
+                on_hover.push_str("------------------------\n");
+            }
         };
         let x = rtcp_info.time.as_secs_f64() - first_packet.timestamp.as_secs_f64();
         let y = if let Some(last_position) = points_x_and_y_top.last() {
@@ -424,26 +438,34 @@ fn build_stream_points(
         } else {
             this_stream_y_baseline
         };
-        match settings_x_axis {
-            RtpTimestamp => {}
-            RawTimestamp => {
-                points_data.push(PointData {
-                    x,
-                    y_low: y,
-                    y_top: y,
-                    on_hover,
-                    color: Color32::from_rgb(200, 0, 200),
-                    radius: 3.5,
-                    is_rtcp: true,
-                    marker_shape: MarkerShape::Square,
-                });
-            }
-            SequenceNumer => {}
-        }
         if *previous_stream_max_y < y {
             *previous_stream_max_y = y;
         }
-        points_x_and_y_top.push((x, y));
+
+        if let Some(prev_id) = maybe_prev_id {
+            if prev_id != rtcp_info.id {
+                match settings_x_axis {
+                    RtpTimestamp => {}
+                    RawTimestamp => {
+                        let saved_on_hover = on_hover.clone();
+                        points_data.push(PointData {
+                            x,
+                            y_low: y,
+                            y_top: y,
+                            on_hover: saved_on_hover,
+                            color: Color32::from_rgb(200, 0, 200),
+                            radius: 3.5,
+                            is_rtcp: true,
+                            marker_shape: MarkerShape::Square,
+                        });
+                        on_hover = String::new();
+                        points_x_and_y_top.push((x, y));
+                    }
+                    SequenceNumer => {}
+                }
+            }
+        }
+        maybe_prev_id = Some(rtcp_info.id);
     });
     rtp_packets
         .iter()
