@@ -38,22 +38,6 @@ impl SettingsXAxis {
     fn all() -> Vec<Self> {
         vec![RtpTimestamp, RawTimestamp, SequenceNumer]
     }
-
-    fn default_max_slider_value(&self) -> i64 {
-        match self {
-            RtpTimestamp => 1000000,
-            RawTimestamp => 100,
-            SequenceNumer => 5000,
-        }
-    }
-
-    fn default_current_max_slider_value(&self) -> i64 {
-        match self {
-            RtpTimestamp => 400000,
-            RawTimestamp => 1,
-            SequenceNumer => 100,
-        }
-    }
 }
 
 impl Display for SettingsXAxis {
@@ -76,7 +60,7 @@ pub struct RtpStreamsPlot {
     streams_visibility: HashMap<StreamKey, bool>,
     last_rtp_packets_len: usize,
     set_plot_bounds: bool,
-    slider_max: String,
+    slider_max: i64,
     slider_current_min: i64,
     slider_current_max: i64,
     first_draw: bool,
@@ -92,9 +76,9 @@ impl RtpStreamsPlot {
             streams_visibility: HashMap::default(),
             last_rtp_packets_len: 0,
             set_plot_bounds: false,
-            slider_max: String::from("1000000"),
+            slider_max: 10000,
             slider_current_min: 0,
-            slider_current_max: 400000,
+            slider_current_max: 1,
             first_draw: true,
         }
     }
@@ -171,14 +155,7 @@ impl RtpStreamsPlot {
     }
 
     fn plot_bounds_ui_options(&mut self, ui: &mut Ui) {
-        let mut set_plot_button_clicked = false;
-        ui.horizontal_wrapped(|ui| {
-            set_plot_button_clicked = ui.button("Set plot bounds").clicked();
-            ui.label("Set slider max value:");
-            ui.add(egui::TextEdit::singleline(&mut self.slider_max).desired_width(100.0));
-        });
-        let slider_max = self.slider_max.parse::<i64>();
-        let max = slider_max.unwrap_or(self.x_axis.default_max_slider_value());
+        let set_plot_button_clicked = ui.button("Set plot bounds").clicked();
 
         let (x_min_text, x_max_text) = match self.x_axis {
             RtpTimestamp => ("First RTP timestamp", "Last RTP timestamp"),
@@ -186,10 +163,11 @@ impl RtpStreamsPlot {
             SequenceNumer => ("First sequence number", "Last sequence number"),
         };
 
+        let max = (self.slider_max as f64 * 1.13) as i64;
         let x_min_resp =
             ui.add(egui::Slider::new(&mut self.slider_current_min, 0..=max).text(x_min_text));
         let x_max_resp =
-            ui.add(egui::Slider::new(&mut self.slider_current_max, 0..=max).text(x_max_text));
+            ui.add(egui::Slider::new(&mut self.slider_current_max, 1..=max).text(x_max_text));
 
         if set_plot_button_clicked | x_min_resp.dragged() | x_max_resp.dragged() {
             self.set_plot_bounds = true
@@ -224,11 +202,10 @@ impl RtpStreamsPlot {
                     .clicked()
                 {
                     self.x_axis = setting;
-                    self.slider_max = format!("{}", self.x_axis.default_max_slider_value());
-                    self.slider_current_max = self.x_axis.default_current_max_slider_value();
+                    self.slider_max = 10000;
+                    self.slider_current_max = 1;
                     self.slider_current_min = 0;
                     self.requires_reset = true;
-                    self.set_plot_bounds = true;
                 }
             });
         });
@@ -308,7 +285,7 @@ impl RtpStreamsPlot {
         }
         if !self.first_draw && self.set_plot_bounds {
             plot_ui.set_plot_bounds(PlotBounds::from_min_max(
-                [self.slider_current_min as f64, -0.5],
+                [(self.slider_current_min as f64) -0.05, -0.5],
                 [self.slider_current_max as f64, heighest_y * 1.55],
             ));
             self.set_plot_bounds = false
@@ -336,6 +313,7 @@ impl RtpStreamsPlot {
                 self.x_axis,
                 &mut self.points_data,
                 &mut previous_stream_max_y,
+                &mut self.slider_max,
             );
         });
     }
@@ -349,6 +327,7 @@ fn build_stream_points(
     settings_x_axis: SettingsXAxis,
     points_data: &mut Vec<PointData>,
     previous_stream_max_y: &mut f64,
+    slider_max: &mut i64,
 ) {
     let this_stream_y_baseline = *previous_stream_max_y + 0.2 * *previous_stream_max_y;
     let rtp_packets = &stream.rtp_packets;
@@ -460,6 +439,10 @@ fn build_stream_points(
                         });
                         on_hover = String::new();
                         points_x_and_y_top.push((x, y));
+                        let x = x as i64;
+                        if x > *slider_max {
+                            *slider_max = x;
+                        }
                     }
                     SequenceNumer => {}
                 }
@@ -505,6 +488,10 @@ fn build_stream_points(
             }
 
             points_x_and_y_top.push((x, y_top));
+            let x = x as i64;
+            if x > *slider_max {
+                *slider_max = x;
+            }
         });
 }
 
