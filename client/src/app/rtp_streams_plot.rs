@@ -157,6 +157,7 @@ impl RtpStreamsPlot {
 
     fn options_ui(&mut self, ui: &mut Ui) {
         ui.horizontal(|ui| {
+            ui.add_space(12.0);
             ui.vertical(|ui| {
                 self.reset_button(ui);
                 self.axis_settings(ui);
@@ -565,7 +566,7 @@ fn build_on_hover_text(
 ) -> String {
     let mut on_hover = String::new();
 
-    on_hover.push_str(&format!("Alias: {} (SSRC: {})", stream.alias, stream.ssrc));
+    on_hover.push_str(&format!("Alias: {} (SSRC: {:x})", stream.alias, stream.ssrc));
     on_hover.push('\n');
     on_hover.push_str(&format!(
         "Source: {}\nDestination: {}\n",
