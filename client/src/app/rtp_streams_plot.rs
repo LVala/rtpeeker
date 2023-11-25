@@ -566,7 +566,10 @@ fn build_on_hover_text(
 ) -> String {
     let mut on_hover = String::new();
 
-    on_hover.push_str(&format!("Alias: {} (SSRC: {:x})", stream.alias, stream.ssrc));
+    on_hover.push_str(&format!(
+        "Alias: {} (SSRC: {:x})",
+        stream.alias, stream.ssrc
+    ));
     on_hover.push('\n');
     on_hover.push_str(&format!(
         "Source: {}\nDestination: {}\n",
