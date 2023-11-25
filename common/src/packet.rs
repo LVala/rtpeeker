@@ -103,7 +103,8 @@ impl Packet {
         Some(Self {
             payload: Some(packet.payload.to_vec()),
             id,
-            length: raw_packet.header.len,
+            // length of packet (excluding Ethernet header)
+            length: raw_packet.header.len - 14,
             timestamp: duration,
             source_addr,
             destination_addr,

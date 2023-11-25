@@ -65,7 +65,7 @@ fn handle_packet(streams: &mut HashMap<StreamKey, Stream>, packet: &Packet) {
             );
 
             if let Some(stream) = streams.get_mut(&stream_key) {
-                stream.add_rtp_packet(packet.id, packet.timestamp, rtp);
+                stream.add_rtp_packet(packet, rtp);
             } else {
                 let new_stream = Stream::new(packet, rtp, int_to_letter(streams.len()));
                 streams.insert(stream_key, new_stream);
@@ -112,8 +112,8 @@ fn get_rtcp_stream(
     if streams.contains_key(&key_same_port) {
         streams.get_mut(&key_same_port)
     } else {
-        source_addr.set_port(source_addr.port() + 1);
-        destination_addr.set_port(destination_addr.port() + 1);
+        source_addr.set_port(source_addr.port() - 1);
+        destination_addr.set_port(destination_addr.port() - 1);
         let key_next_port = (source_addr, destination_addr, protocol, ssrc);
         streams.get_mut(&key_next_port)
     }

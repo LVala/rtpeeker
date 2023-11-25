@@ -1,7 +1,8 @@
-use egui::TextEdit;
+use egui::plot::{Line, Plot, PlotPoints};
+use egui::{TextEdit, Vec2};
 use egui_extras::{Column, TableBody, TableBuilder};
 
-use crate::streams::RefStreams;
+use crate::streams::{stream::Stream, RefStreams};
 
 pub struct RtpStreamsTable {
     streams: RefStreams,
@@ -24,23 +25,26 @@ impl RtpStreamsTable {
             ("SSRC", "RTP SSRC (Synchronization Source Identifier) identifies the source of an RTP stream"),
             ("Source", "Source IP address and port"),
             ("Destination", "Destination IP address and port"),
-            ("Number of packets", "Number of packets in stream"),
-            ("Expected number of packets", "Expected number of packets in stream, based on sequence numbers"),
+            ("CNAME", "Source Description CNAME value, if received"),
+            ("Packet count", "Number of packets in stream"),
             ("Packet loss", "Percentage of packets lost"),
             ("Duration", "Difference between last timestamp and first timestamp."),
-            ("Mean jitter", "Average of jitter values for all of the packets"),
-            ("Mean bitrate", "Average bitrate (sum of packets' lengts divided by stream duration)"),
+            ("Mean jitter", "Average of jitter (in ms) for all of the packets"),
+            ("Mean bitrate", "Sum of packet sizes (IP header included) divided by stream's duration (in kbps)"),
+            ("Mean packet rate", "Number of packets divided by stream's duration"),
+            ("Jitter history", "Plot representing jitter for all of the stream's packets")
         ];
         TableBuilder::new(ui)
             .striped(true)
             .resizable(true)
             .stick_to_bottom(true)
             .column(Column::initial(50.0).at_least(50.0))
-            .column(Column::initial(100.0).at_least(100.0))
-            .columns(Column::initial(150.0).at_least(150.0), 2)
-            .columns(Column::initial(100.0).at_least(100.0), 2)
-            .column(Column::initial(50.0).at_least(70.0))
-            .columns(Column::initial(100.0).at_least(100.0), 3)
+            .column(Column::initial(80.0).at_least(80.0))
+            .columns(Column::initial(140.0).at_least(140.0), 2)
+            .columns(Column::initial(80.0).at_least(80.0), 3)
+            .column(Column::initial(70.0).at_least(70.0))
+            .columns(Column::initial(80.0).at_least(80.0), 2)
+            .column(Column::initial(70.0).at_least(70.0))
             .column(Column::remainder().at_least(380.0).resizable(false))
             .header(30.0, |mut header| {
                 header_labels.iter().for_each(|(label, desc)| {
@@ -78,10 +82,10 @@ impl RtpStreamsTable {
                 ui.label(stream.destination_addr.to_string());
             });
             row.col(|ui| {
-                ui.label(stream.rtp_packets.len().to_string());
+                ui.label(stream.cname.as_ref().unwrap_or(&"N/A".to_string()));
             });
             row.col(|ui| {
-                ui.label(stream.get_expected_count().to_string());
+                ui.label(stream.rtp_packets.len().to_string());
             });
             row.col(|ui| {
                 let lost = stream.get_expected_count() - stream.rtp_packets.len();
@@ -97,8 +101,41 @@ impl RtpStreamsTable {
                 ui.label(format!("{:.3}ms", jitter));
             });
             row.col(|ui| {
-                ui.label(stream.get_mean_bitrate().to_string());
+                let bitrate = stream.get_mean_bitrate() / 1000.0;
+                ui.label(format!("{:.3}", bitrate));
+            });
+            row.col(|ui| {
+                let packet_rate = stream.get_mean_packet_rate();
+                ui.label(format!("{:.3}", packet_rate));
+            });
+            row.col(|ui| {
+                build_jitter_plot(ui, stream);
             });
         });
     }
+}
+
+fn build_jitter_plot(ui: &mut egui::Ui, stream: &Stream) {
+    ui.vertical_centered_justified(|ui| {
+        let points: PlotPoints = stream
+            .rtp_packets
+            .iter()
+            .enumerate()
+            .filter_map(|(ix, rtp)| rtp.jitter.map(|jitter| [ix as f64, jitter]))
+            .collect();
+
+        let line = Line::new(points).name("jitter");
+        Plot::new(format!("jitter plot {}", stream.ssrc))
+            .show_background(false)
+            .show_axes([true, true])
+            .label_formatter(|_name, value| {
+                format!("packet id: {}\njitter = {:.3}ms", value.x, value.y)
+            })
+            .set_margin_fraction(Vec2::new(0.1, 0.1))
+            .allow_scroll(false)
+            .show(ui, |plot_ui| {
+                plot_ui.line(line);
+            });
+        ui.add_space(7.0);
+    });
 }

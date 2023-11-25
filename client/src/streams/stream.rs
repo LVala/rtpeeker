@@ -1,3 +1,4 @@
+use crate::utils::ntp_to_f64;
 use rtpeeker_common::packet::TransportProtocol;
 use rtpeeker_common::rtcp::{source_description::SdesType, SourceDescription};
 use rtpeeker_common::{Packet, RtcpPacket, RtpPacket};
@@ -27,13 +28,13 @@ pub struct RtpInfo {
     pub packet: RtpPacket,
     pub id: usize,
     pub time: Duration,
+    pub ntp_time: Option<u64>,
     pub time_delta: Duration,
     pub jitter: Option<f64>,
     pub prev_lost: bool,
-    // bitrate the last second, in bits per second
-    pub bitrate: usize,
-    // per second
-    pub packet_rate: usize,
+    pub bytes: usize,
+    pub bitrate: usize,     // in the last second, kbps
+    pub packet_rate: usize, // packets/s
 }
 
 #[derive(Debug)]
@@ -54,6 +55,9 @@ pub struct Stream {
     last_sequence_number: u16,
     first_time: Duration,
     last_time: Duration,
+    // ntp synchronization
+    pub ntp_rtp: Option<(u64, u32)>,
+    pub estimated_clock_rate: Option<f64>,
 }
 
 impl Stream {
@@ -62,10 +66,12 @@ impl Stream {
             packet: rtp.clone(),
             id: packet.id,
             time: packet.timestamp,
+            ntp_time: None,
             time_delta: Duration::from_secs(0),
             jitter: Some(0.0),
             prev_lost: false,
-            bitrate: rtp.payload_length,
+            bytes: packet.length as usize,
+            bitrate: packet.length as usize * 8,
             packet_rate: 1,
         };
 
@@ -77,7 +83,7 @@ impl Stream {
             alias: default_alias,
             rtp_packets: vec![rtp_info],
             rtcp_packets: Vec::new(),
-            bytes: rtp.payload_length,
+            bytes: packet.length as usize,
             max_jitter: 0.0,
             sum_jitter: 0.0,
             jitter_count: 0,
@@ -86,6 +92,8 @@ impl Stream {
             last_sequence_number: rtp.sequence_number,
             first_time: packet.timestamp,
             last_time: packet.timestamp,
+            ntp_rtp: None,
+            estimated_clock_rate: None,
         }
     }
 
@@ -106,14 +114,21 @@ impl Stream {
         self.bytes as f64 * 8.0 / duration
     }
 
-    pub fn add_rtp_packet(&mut self, id: usize, timestamp: Duration, packet: &RtpPacket) {
+    pub fn get_mean_packet_rate(&self) -> f64 {
+        let duration = self.get_duration().as_secs_f64();
+        self.rtp_packets.len() as f64 / duration
+    }
+
+    pub fn add_rtp_packet(&mut self, packet: &Packet, rtp: &RtpPacket) {
         let rtp_info = RtpInfo {
-            packet: packet.clone(),
-            id,
-            time: timestamp,
+            packet: rtp.clone(),
+            id: packet.id,
+            time: packet.timestamp,
+            ntp_time: None,
             time_delta: Duration::from_secs(0),
             jitter: None,
             prev_lost: true,
+            bytes: packet.length as usize,
             bitrate: 0,
             packet_rate: 0,
         };
@@ -125,9 +140,20 @@ impl Stream {
         match &packet {
             RtcpPacket::SourceDescription(sd) => self.update_sdes_items(sd),
             RtcpPacket::ReceiverReport(_rr) => {}
-            RtcpPacket::SenderReport(_sr) => {
-                // TODO handle wallclock time etc
-                // TODO handle reception reports
+            RtcpPacket::SenderReport(sr) => {
+                // let mut revisit_packets = false;
+                if let Some((ntp_time, rtp_time)) = self.ntp_rtp {
+                    // revisit_packets = self.estimated_clock_rate.is_none();
+                    let rtp_diff = sr.rtp_time - rtp_time;
+                    let secs_diff = ntp_to_f64(sr.ntp_time) - ntp_to_f64(ntp_time);
+                    self.estimated_clock_rate = Some(rtp_diff as f64 / secs_diff);
+                } else {
+                    // revisit_packets = true;
+                }
+                self.ntp_rtp = Some((sr.ntp_time, sr.rtp_time));
+                // log::info!("EST:{:x?} {:?}", sr.ssrc, self.estimated_clock_rate);
+                // TODO: use the estiamted clock rate to set ntp time in rtp_info
+                // TODO: sometimes ntp timestamps are bs
             }
             _ => {}
         }
@@ -139,10 +165,11 @@ impl Stream {
     fn update_rtp_parameters(&mut self, mut rtp_info: RtpInfo) {
         rtp_info.time_delta = rtp_info.time - self.rtp_packets.last().unwrap().time;
 
+        self.estimate_ntp_time(&mut rtp_info);
         self.update_jitter(&mut rtp_info);
         self.update_rates(&mut rtp_info);
 
-        self.bytes += rtp_info.packet.payload_length;
+        self.bytes += rtp_info.bytes;
 
         self.first_time = min(self.first_time, rtp_info.time);
         self.last_time = max(self.last_time, rtp_info.time);
@@ -152,6 +179,10 @@ impl Stream {
 
         self.update_prev_lost(&mut rtp_info);
         self.rtp_packets.push(rtp_info);
+    }
+
+    fn estimate_ntp_time(&self, _rtp_info: &mut RtpInfo) {
+        // TODO
     }
 
     fn update_jitter(&mut self, rtp_info: &mut RtpInfo) {
@@ -193,7 +224,7 @@ impl Stream {
         let cutoff = rtp_info.time.checked_sub(Duration::from_secs(1)).unwrap();
 
         let last_second_packets = self.rtp_packets.iter().rev().map_while(|pack| match pack {
-            RtpInfo { time, .. } if *time > cutoff => Some(pack.packet.payload_length),
+            RtpInfo { time, .. } if *time > cutoff => Some(pack.bytes),
             _ => None,
         });
 
@@ -201,7 +232,7 @@ impl Stream {
         // as it hasn't been placed in `rtp_packets` yet
         rtp_info.packet_rate = last_second_packets.clone().count() + 1;
 
-        let bytes = last_second_packets.sum::<usize>() + rtp_info.packet.payload_length;
+        let bytes = last_second_packets.sum::<usize>() + rtp_info.bytes;
         rtp_info.bitrate = bytes * 8;
     }
 

@@ -19,6 +19,13 @@ pub fn ntp_to_string(ntp_time: u64) -> String {
     time.format("%Y-%m-%d %H:%M:%S%.f").to_string()
 }
 
+pub fn ntp_to_f64(ntp_time: u64) -> f64 {
+    let seconds: i64 = (ntp_time >> 32).try_into().unwrap();
+    let frac_part: i64 = (ntp_time & u32::MAX as u64).try_into().unwrap();
+    let fraction = frac_part as f64 / u32::MAX as f64;
+    seconds as f64 + fraction
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
