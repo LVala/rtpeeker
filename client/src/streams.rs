@@ -74,7 +74,6 @@ fn handle_packet(streams: &mut HashMap<StreamKey, Stream>, packet: &Packet) {
                     RtcpPacket::SourceDescription(sd) => {
                         sd.chunks.iter().map(|chunk| chunk.source).collect()
                     }
-                    // TODO DAMIAN what about others?
                     _ => Vec::new(),
                 };
 
