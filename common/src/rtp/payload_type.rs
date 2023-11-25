@@ -49,13 +49,12 @@ impl fmt::Display for PayloadType {
         } else {
             String::new()
         };
-        let payload_type = format!("Payload type: {} {} {} {}", self.id, self.name, self.media_type, clock_rate);
+        let payload_type = format!(
+            "Payload type: {} {} {} {}",
+            self.id, self.name, self.media_type, clock_rate
+        );
 
-        write!(
-            f,
-            "{}",
-            payload_type
-        )
+        write!(f, "{}", payload_type)
     }
 }
 
