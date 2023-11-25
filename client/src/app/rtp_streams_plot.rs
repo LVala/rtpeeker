@@ -285,7 +285,7 @@ impl RtpStreamsPlot {
         }
         if !self.first_draw && self.set_plot_bounds {
             plot_ui.set_plot_bounds(PlotBounds::from_min_max(
-                [(self.slider_current_min as f64) -0.05, -0.5],
+                [(self.slider_current_min as f64) - 0.05, -0.5],
                 [self.slider_current_max as f64, heighest_y * 1.55],
             ));
             self.set_plot_bounds = false
