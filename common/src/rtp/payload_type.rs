@@ -45,12 +45,12 @@ impl PayloadType {
 impl fmt::Display for PayloadType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let payload_type = format!("Payload type: {}", self.id);
-        let name = format!("Name: {}", self.name);
-        let media_type = format!("Type: {}", self.media_type);
+        let name = format!(" Name: {}", self.name);
+        let media_type = format!(" Type: {}", self.media_type);
         let clock_rate = if let Some(freq) = self.clock_rate {
-            format!("Clock rate: {} Hz", freq)
+            format!(" Clock rate: {} Hz", freq)
         } else {
-            "Clock rate: unknown".to_string()
+            " Clock rate: unknown".to_string()
         };
 
         write!(
