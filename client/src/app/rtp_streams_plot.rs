@@ -202,7 +202,7 @@ impl RtpStreamsPlot {
                     .clicked()
                 {
                     self.x_axis = setting;
-                    self.slider_max = 10000;
+                    self.slider_max = 1;
                     self.slider_current_max = 1;
                     self.slider_current_min = 0;
                     self.requires_reset = true;
