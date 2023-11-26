@@ -103,7 +103,8 @@ impl Packet {
         Some(Self {
             payload: Some(packet.payload.to_vec()),
             id,
-            length: raw_packet.header.len,
+            // length of packet (excluding Ethernet header)
+            length: raw_packet.header.len - 14,
             timestamp: duration,
             source_addr,
             destination_addr,
@@ -185,6 +186,9 @@ fn is_rtp(packet: &RtpPacket) -> bool {
         return false;
     }
     if let 72..=76 = packet.payload_type.id {
+        return false;
+    }
+    if packet.ssrc == 0 {
         return false;
     }
 

@@ -1,6 +1,8 @@
+use crate::utils::ntp_to_f64;
 use rtpeeker_common::packet::TransportProtocol;
 use rtpeeker_common::rtcp::{source_description::SdesType, SourceDescription};
-use rtpeeker_common::{RtcpPacket, RtpPacket};
+use rtpeeker_common::{Packet, RtcpPacket, RtpPacket};
+use std::cmp::{max, min};
 use std::net::SocketAddr;
 use std::time::Duration;
 
@@ -26,26 +28,13 @@ pub struct RtpInfo {
     pub packet: RtpPacket,
     pub id: usize,
     pub time: Duration,
+    pub ntp_time: Option<u64>,
+    pub time_delta: Duration,
     pub jitter: Option<f64>,
     pub prev_lost: bool,
-    // bitrate the last second, in bits per second
-    pub bitrate: usize,
-    // per second
-    pub packet_rate: usize,
-}
-
-impl RtpInfo {
-    pub fn new(packet: &RtpPacket, id: usize, time: Duration) -> Self {
-        Self {
-            packet: packet.clone(),
-            id,
-            time,
-            jitter: None,
-            prev_lost: true,
-            bitrate: 0,
-            packet_rate: 0,
-        }
-    }
+    pub bytes: usize,
+    pub bitrate: usize,     // in the last second, kbps
+    pub packet_rate: usize, // packets/s
 }
 
 #[derive(Debug)]
@@ -57,55 +46,93 @@ pub struct Stream {
     pub alias: String,
     pub rtp_packets: Vec<RtpInfo>,
     pub rtcp_packets: Vec<RtcpInfo>,
-    pub bytes: usize,
+    pub max_jitter: f64,
     pub cname: Option<String>,
-    first_sequence_number: Option<u16>,
-    last_sequence_number: Option<u16>,
-    first_time: Option<Duration>,
-    last_time: Option<Duration>,
+    bytes: usize,
+    sum_jitter: f64,
+    jitter_count: usize,
+    first_sequence_number: u16,
+    last_sequence_number: u16,
+    first_time: Duration,
+    last_time: Duration,
+    // ntp synchronization
+    pub ntp_rtp: Option<(u64, u32)>,
+    pub estimated_clock_rate: Option<f64>,
 }
 
 impl Stream {
-    pub fn new(
-        source_addr: SocketAddr,
-        destination_addr: SocketAddr,
-        protocol: TransportProtocol,
-        ssrc: u32,
-        default_alias: String,
-    ) -> Self {
+    pub fn new(packet: &Packet, rtp: &RtpPacket, default_alias: String) -> Self {
+        let rtp_info = RtpInfo {
+            packet: rtp.clone(),
+            id: packet.id,
+            time: packet.timestamp,
+            ntp_time: None,
+            time_delta: Duration::from_secs(0),
+            jitter: Some(0.0),
+            prev_lost: false,
+            bytes: packet.length as usize,
+            bitrate: packet.length as usize * 8,
+            packet_rate: 1,
+        };
+
         Self {
-            source_addr,
-            destination_addr,
-            protocol,
-            ssrc,
+            source_addr: packet.source_addr,
+            destination_addr: packet.destination_addr,
+            protocol: packet.transport_protocol,
+            ssrc: rtp.ssrc,
             alias: default_alias,
-            rtp_packets: Vec::new(),
+            rtp_packets: vec![rtp_info],
             rtcp_packets: Vec::new(),
-            bytes: 0,
+            bytes: packet.length as usize,
+            max_jitter: 0.0,
+            sum_jitter: 0.0,
+            jitter_count: 0,
             cname: None,
-            first_sequence_number: None,
-            last_sequence_number: None,
-            first_time: None,
-            last_time: None,
+            first_sequence_number: rtp.sequence_number,
+            last_sequence_number: rtp.sequence_number,
+            first_time: packet.timestamp,
+            last_time: packet.timestamp,
+            ntp_rtp: None,
+            estimated_clock_rate: None,
         }
     }
 
-    pub fn get_duration(&self) -> Option<Duration> {
-        match (self.first_time, self.last_time) {
-            (Some(first), Some(last)) => Some(last.checked_sub(first).unwrap()),
-            _ => None,
-        }
+    pub fn get_duration(&self) -> Duration {
+        self.last_time.checked_sub(self.first_time).unwrap()
     }
 
-    pub fn get_expected_count(&self) -> Option<u16> {
-        match (self.first_sequence_number, self.last_sequence_number) {
-            (Some(first), Some(last)) => Some(last + 1 - first),
-            _ => None,
-        }
+    pub fn get_expected_count(&self) -> usize {
+        (self.last_sequence_number + 1 - self.first_sequence_number) as usize
     }
 
-    pub fn add_rtp_packet(&mut self, id: usize, timestamp: Duration, packet: &RtpPacket) {
-        let rtp_info = RtpInfo::new(packet, id, timestamp);
+    pub fn get_mean_jitter(&self) -> f64 {
+        self.sum_jitter / self.jitter_count as f64
+    }
+
+    pub fn get_mean_bitrate(&self) -> f64 {
+        let duration = self.get_duration().as_secs_f64();
+        self.bytes as f64 * 8.0 / duration
+    }
+
+    pub fn get_mean_packet_rate(&self) -> f64 {
+        let duration = self.get_duration().as_secs_f64();
+        self.rtp_packets.len() as f64 / duration
+    }
+
+    pub fn add_rtp_packet(&mut self, packet: &Packet, rtp: &RtpPacket) {
+        let rtp_info = RtpInfo {
+            packet: rtp.clone(),
+            id: packet.id,
+            time: packet.timestamp,
+            ntp_time: None,
+            time_delta: Duration::from_secs(0),
+            jitter: None,
+            prev_lost: true,
+            bytes: packet.length as usize,
+            bitrate: 0,
+            packet_rate: 0,
+        };
+
         self.update_rtp_parameters(rtp_info);
     }
 
@@ -113,9 +140,20 @@ impl Stream {
         match &packet {
             RtcpPacket::SourceDescription(sd) => self.update_sdes_items(sd),
             RtcpPacket::ReceiverReport(_rr) => {}
-            RtcpPacket::SenderReport(_sr) => {
-                // TODO handle wallclock time etc
-                // TODO handle reception reports
+            RtcpPacket::SenderReport(sr) => {
+                // let mut revisit_packets = false;
+                if let Some((ntp_time, rtp_time)) = self.ntp_rtp {
+                    // revisit_packets = self.estimated_clock_rate.is_none();
+                    let rtp_diff = sr.rtp_time - rtp_time;
+                    let secs_diff = ntp_to_f64(sr.ntp_time) - ntp_to_f64(ntp_time);
+                    self.estimated_clock_rate = Some(rtp_diff as f64 / secs_diff);
+                } else {
+                    // revisit_packets = true;
+                }
+                self.ntp_rtp = Some((sr.ntp_time, sr.rtp_time));
+                // log::info!("EST:{:x?} {:?}", sr.ssrc, self.estimated_clock_rate);
+                // TODO: use the estiamted clock rate to set ntp time in rtp_info
+                // TODO: sometimes ntp timestamps are bs
             }
             _ => {}
         }
@@ -125,46 +163,34 @@ impl Stream {
     }
 
     fn update_rtp_parameters(&mut self, mut rtp_info: RtpInfo) {
+        rtp_info.time_delta = rtp_info.time - self.rtp_packets.last().unwrap().time;
+
+        self.estimate_ntp_time(&mut rtp_info);
         self.update_jitter(&mut rtp_info);
         self.update_rates(&mut rtp_info);
 
-        self.bytes += rtp_info.packet.payload_length;
+        self.bytes += rtp_info.bytes;
 
-        self.first_time = match self.first_time {
-            Some(ft) if ft < rtp_info.time => Some(ft),
-            _ => Some(rtp_info.time),
-        };
+        self.first_time = min(self.first_time, rtp_info.time);
+        self.last_time = max(self.last_time, rtp_info.time);
+        self.first_sequence_number =
+            min(self.first_sequence_number, rtp_info.packet.sequence_number);
+        self.last_sequence_number = max(self.last_sequence_number, rtp_info.packet.sequence_number);
 
-        self.last_time = match self.last_time {
-            Some(ft) if ft > rtp_info.time => Some(ft),
-            _ => Some(rtp_info.time),
-        };
-
-        self.first_sequence_number = match self.first_sequence_number {
-            Some(fsn) if fsn < rtp_info.packet.sequence_number => Some(fsn),
-            _ => Some(rtp_info.packet.sequence_number),
-        };
-
-        self.last_sequence_number = match self.last_sequence_number {
-            Some(fsn) if fsn > rtp_info.packet.sequence_number => Some(fsn),
-            _ => Some(rtp_info.packet.sequence_number),
-        };
-
-        // update_prev_lost first_X/last_X updated
         self.update_prev_lost(&mut rtp_info);
         self.rtp_packets.push(rtp_info);
     }
 
-    fn update_jitter(&self, rtp_info: &mut RtpInfo) {
+    fn estimate_ntp_time(&self, _rtp_info: &mut RtpInfo) {
+        // TODO
+    }
+
+    fn update_jitter(&mut self, rtp_info: &mut RtpInfo) {
         let Some(clock_rate) = rtp_info.packet.payload_type.clock_rate else {
             return;
         };
 
-        let Some(prev_rtp_info) = self.rtp_packets.last() else {
-            // rtp_info is the first packet
-            rtp_info.jitter = Some(0.0);
-            return;
-        };
+        let prev_rtp_info = self.rtp_packets.last().unwrap();
 
         let is_new = rtp_info.packet.payload_type.id != prev_rtp_info.packet.payload_type.id;
         if is_new {
@@ -183,16 +209,22 @@ impl Stream {
         let diff = arrival_diff - rtp_timestamp_diff * unit;
 
         let prev_jitter = prev_rtp_info.jitter.unwrap();
-        let jitter = prev_jitter + (diff - prev_jitter) / 16.0;
+        let jitter = prev_jitter + (diff.abs() - prev_jitter) / 16.0;
 
         rtp_info.jitter = Some(jitter);
+
+        if jitter > self.max_jitter {
+            self.max_jitter = jitter;
+        }
+        self.sum_jitter += jitter;
+        self.jitter_count += 1;
     }
 
     fn update_rates(&self, rtp_info: &mut RtpInfo) {
         let cutoff = rtp_info.time.checked_sub(Duration::from_secs(1)).unwrap();
 
         let last_second_packets = self.rtp_packets.iter().rev().map_while(|pack| match pack {
-            RtpInfo { time, .. } if *time > cutoff => Some(pack.packet.payload_length),
+            RtpInfo { time, .. } if *time > cutoff => Some(pack.bytes),
             _ => None,
         });
 
@@ -200,13 +232,12 @@ impl Stream {
         // as it hasn't been placed in `rtp_packets` yet
         rtp_info.packet_rate = last_second_packets.clone().count() + 1;
 
-        let bytes = last_second_packets.sum::<usize>() + rtp_info.packet.payload_length;
+        let bytes = last_second_packets.sum::<usize>() + rtp_info.bytes;
         rtp_info.bitrate = bytes * 8;
     }
 
     fn update_prev_lost(&mut self, rtp_info: &mut RtpInfo) {
-        let first_sn = self.first_sequence_number.unwrap();
-        if rtp_info.packet.sequence_number == first_sn {
+        if rtp_info.packet.sequence_number == self.first_sequence_number {
             rtp_info.prev_lost = false;
             return;
         }
