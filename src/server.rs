@@ -7,6 +7,7 @@ use log::{error, info, warn};
 use rtpeeker_common::packet::SessionProtocol;
 use rtpeeker_common::{Request, Response, Sdp};
 use rtpeeker_common::{Source, StreamKey};
+use rust_embed::RustEmbed;
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::{
@@ -15,11 +16,15 @@ use std::sync::{
 };
 use tokio::sync::{mpsc, mpsc::UnboundedSender, RwLock};
 use warp::ws::{Message, WebSocket};
-use warp::Filter;
+use warp::{http::header::HeaderValue, path::Tail, reply};
+use warp::{Filter, Rejection, Reply};
 
-const DIST_DIR: &str = "client/dist";
 const WS_PATH: &str = "ws";
 static NEXT_CLIENT_ID: AtomicUsize = AtomicUsize::new(1);
+
+#[derive(RustEmbed)]
+#[folder = "client/dist"]
+struct Asset;
 
 struct Client {
     pub sender: mpsc::UnboundedSender<Message>,
@@ -66,10 +71,33 @@ pub async fn run(sniffers: HashMap<String, Sniffer>, addr: SocketAddr) {
             ws.on_upgrade(move |socket| client_connected(socket, clients_cl, source_to_packets_cl))
         });
 
-    let routes = ws.or(warp::fs::dir(DIST_DIR));
+    let index_html = warp::path::end().and_then(serve_index);
+    let other = warp::path::tail().and_then(serve);
+
+    let routes = ws.or(index_html).or(other);
 
     println!("RTPeeker running on http://{}/", addr);
     warp::serve(routes).try_bind(addr).await;
+}
+
+async fn serve_index() -> Result<impl Reply, Rejection> {
+    serve_impl("index.html").await
+}
+
+async fn serve(path: Tail) -> Result<impl Reply, Rejection> {
+    serve_impl(path.as_str()).await
+}
+
+async fn serve_impl(path: &str) -> Result<impl Reply, Rejection> {
+    let asset = Asset::get(path).ok_or_else(warp::reject::not_found)?;
+    let mime = mime_guess::from_path(path).first_or_octet_stream();
+
+    let mut res = reply::Response::new(asset.data.into());
+    res.headers_mut().insert(
+        "content-type",
+        HeaderValue::from_str(mime.as_ref()).unwrap(),
+    );
+    Ok(res)
 }
 
 async fn client_connected(ws: WebSocket, clients: Clients, source_to_packets: PacketsMap) {
