@@ -2,38 +2,31 @@
 
 _Work in progress_
 
-## How to setup
+## Installation
 
-Install Trunk
+1. [Install Rust and cargo](https://www.rust-lang.org/tools/install)
+
+2. Add WASM32 target
+```console
+rustup target add wasm32-unknown-unknown
+```
+
+3. Install Trunk, WASM bundlind tool
 ```console
 cargo install --locked trunk
 ```
 
-1) With on-change reloading in the client
-
-Run the server
+4. Make sure to have `libpcap` installed, for Ubuntu:
 ```console
-cargo run
+sudo apt install libpcap-dev
 ```
 
-Run Trunk development server
+5. Install RTPeeker
 ```console
-cd client
-trunk serve serve
+cargo install --locked --git https://github.com/LVala/rtpeeker rtpeeker
 ```
 
-Trunk server will proxy WebSocket connections to the main backend.
-
-2) As a single app
-
-Compile client to WASM
+5. Run the app
 ```console
-cd client
-trunk build --release
-```
-
-Run the server
-```console
-cd ..
-cargo run
+rtpeeker --help
 ```
