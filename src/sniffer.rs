@@ -22,7 +22,7 @@ impl Sniffer<pcap::Offline> {
     pub fn from_file(file: &str) -> Result<Self> {
         match pcap::Capture::from_file(file) {
             Ok(capture) => Ok(Self {
-                packet_id: 0,
+                packet_id: 1,
                 capture,
                 source: Source::File(file.to_string()),
             }),
@@ -37,9 +37,9 @@ impl Sniffer<pcap::Active> {
             return Err(Error::DeviceNotFound);
         };
 
-        match capture.open() {
+        match capture.immediate_mode(true).open() {
             Ok(capture) => Ok(Self {
-                packet_id: 0,
+                packet_id: 1,
                 capture,
                 source: Source::Interface(device.to_string()),
             }),
@@ -56,12 +56,12 @@ impl<T: pcap::Activated> Sniffer<T> {
             Err(_) => return Some(Err(Error::CouldntReceivePacket)),
         };
 
-        match Packet::build(&packet, self.packet_id) {
-            Some(packet) => {
-                self.packet_id += 1;
-                Some(Ok(packet))
-            }
-            None => Some(Err(Error::UnsupportedPacketType)),
-        }
+        let res = match Packet::build(&packet, self.packet_id) {
+            Some(packet) => Ok(packet),
+            None => Err(Error::UnsupportedPacketType),
+        };
+
+        self.packet_id += 1;
+        Some(res)
     }
 }

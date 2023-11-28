@@ -142,16 +142,15 @@ impl Stream {
             RtcpPacket::ReceiverReport(_rr) => {}
             RtcpPacket::SenderReport(sr) => {
                 // let mut revisit_packets = false;
-                if let Some((ntp_time, rtp_time)) = self.ntp_rtp {
+                if let Some((ntp_time, _rtp_time)) = self.ntp_rtp {
                     // revisit_packets = self.estimated_clock_rate.is_none();
-                    let rtp_diff = sr.rtp_time - rtp_time;
-                    let secs_diff = ntp_to_f64(sr.ntp_time) - ntp_to_f64(ntp_time);
-                    self.estimated_clock_rate = Some(rtp_diff as f64 / secs_diff);
+                    // let rtp_diff = sr.rtp_time - rtp_time;
+                    let _secs_diff = ntp_to_f64(sr.ntp_time) - ntp_to_f64(ntp_time);
+                    // self.estimated_clock_rate = Some(rtp_diff as f64 / secs_diff);
                 } else {
                     // revisit_packets = true;
                 }
-                self.ntp_rtp = Some((sr.ntp_time, sr.rtp_time));
-                // log::info!("EST:{:x?} {:?}", sr.ssrc, self.estimated_clock_rate);
+                // self.ntp_rtp = Some((sr.ntp_time, sr.rtp_time));
                 // TODO: use the estiamted clock rate to set ntp time in rtp_info
                 // TODO: sometimes ntp timestamps are bs
             }

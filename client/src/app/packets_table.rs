@@ -80,13 +80,20 @@ impl PacketsTable {
         let streams = self.streams.borrow();
         let packets = &streams.packets;
 
+        if packets.is_empty() {
+            return;
+        }
+
+        let first_timestamp = packets.first().unwrap().timestamp;
+        let keys: Vec<_> = packets.keys().collect();
+
         body.rows(25.0, packets.len(), |id, mut row| {
-            let first_ts = packets.get(0).unwrap().timestamp;
-            let packet = packets.get(id).unwrap();
+            let key = **keys.get(id).unwrap();
+            let packet = packets.get(key).unwrap();
             row.col(|ui| {
-                ui.label(id.to_string());
+                ui.label(packet.id.to_string());
             });
-            let timestamp = packet.timestamp - first_ts;
+            let timestamp = packet.timestamp - first_timestamp;
             row.col(|ui| {
                 ui.label(timestamp.as_secs_f64().to_string());
             });
