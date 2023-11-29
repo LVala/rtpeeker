@@ -1,5 +1,8 @@
 use rtpeeker_common::packet::Packet;
-use std::collections::{btree_map::Values, BTreeMap};
+use std::collections::{
+    btree_map::{Keys, Values},
+    BTreeMap,
+};
 
 #[derive(Debug, Default)]
 pub struct Packets {
@@ -11,12 +14,27 @@ impl Packets {
         self.packets.get(&id)
     }
 
+    pub fn first(&self) -> Option<&Packet> {
+        match self.packets.first_key_value() {
+            Some((_, v)) => Some(v),
+            _ => None,
+        }
+    }
+
     pub fn values(&self) -> Values<'_, usize, Packet> {
         self.packets.values()
     }
 
+    pub fn keys(&self) -> Keys<'_, usize, Packet> {
+        self.packets.keys()
+    }
+
     pub fn is_new(&self, packet: &Packet) -> bool {
         !self.packets.contains_key(&packet.id)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.packets.is_empty()
     }
 
     pub fn len(&self) -> usize {
