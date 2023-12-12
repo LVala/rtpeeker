@@ -1,22 +1,53 @@
+use crate::streams::{stream::Stream, RefStreams, StreamKey};
 use egui::plot::{Line, Plot, PlotPoints};
 use egui::{TextEdit, Vec2};
 use egui_extras::{Column, TableBody, TableBuilder};
 
-use crate::streams::{stream::Stream, RefStreams};
-
 pub struct RtpStreamsTable {
     streams: RefStreams,
+    sdp_window_open: bool,
+    chosen_key: Option<StreamKey>,
+    sdp: String,
 }
 
 impl RtpStreamsTable {
     pub fn new(streams: RefStreams) -> Self {
-        Self { streams }
+        Self {
+            streams,
+            sdp_window_open: false,
+            chosen_key: None,
+            sdp: String::new(),
+        }
     }
 
     pub fn ui(&mut self, ctx: &egui::Context) {
         egui::CentralPanel::default().show(ctx, |ui| {
             self.build_table(ui);
         });
+        self.build_sdp_window(ctx);
+    }
+
+    fn build_sdp_window(&mut self, ctx: &egui::Context) {
+        let Some((_, _, _, ssrc)) = self.chosen_key else {
+            return;
+        };
+
+        egui::Window::new(format!("SDP - {:x}", ssrc))
+            .open(&mut self.sdp_window_open)
+            .default_width(800.0)
+            .default_height(800.0)
+            .vscroll(true)
+            .show(ctx, |ui| {
+                TextEdit::multiline(&mut self.sdp)
+                    .hint_text("Paste your SDP m-line here...")
+                    .desired_rows(30)
+                    .desired_width(f32::INFINITY)
+                    .show(ui);
+                ui.add_space(10.0);
+                if ui.button(format!("Set SDP for {:x}", ssrc)).clicked() {
+                    // TODO: SDP handling
+                }
+            });
     }
 
     fn build_table(&mut self, ui: &mut egui::Ui) {
@@ -108,8 +139,17 @@ impl RtpStreamsTable {
                 let packet_rate = stream.get_mean_packet_rate();
                 ui.label(format!("{:.3}", packet_rate));
             });
-            row.col(|ui| {
+            let (_, resp) = row.col(|ui| {
                 build_jitter_plot(ui, stream);
+            });
+
+            resp.context_menu(|ui| {
+                if ui.button("Set SDP").clicked() {
+                    ui.close_menu();
+                    self.chosen_key = Some(*key);
+                    self.sdp = String::new();
+                    self.sdp_window_open = true;
+                }
             });
         });
     }
