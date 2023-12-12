@@ -5,9 +5,11 @@ use crate::streams::{RefStreams, StreamKey, Streams};
 use eframe::egui;
 use eframe::egui::TextBuffer;
 use eframe::epaint::Color32;
-use egui::plot::{Line, MarkerShape, Plot, PlotBounds, PlotPoints, PlotUi, Points};
-use egui::RichText;
+use egui::plot::{
+    Line, LineStyle, MarkerShape, Plot, PlotBounds, PlotPoint, PlotPoints, PlotUi, Points, Text,
+};
 use egui::Ui;
+use egui::{Align2, RichText};
 use rtpeeker_common::packet::SessionPacket;
 use rtpeeker_common::rtcp::ReceptionReport;
 use rtpeeker_common::rtp::payload_type::MediaType;
@@ -25,6 +27,18 @@ struct PointData {
     radius: f32,
     is_rtcp: bool,
     marker_shape: MarkerShape,
+}
+
+struct StreamSeperatorLine {
+    x_start: f64,
+    x_end: f64,
+    y: f64,
+}
+
+struct StreamText {
+    x: f64,
+    y: f64,
+    on_hover: String,
 }
 
 #[derive(Debug, PartialEq, Copy, Clone)]
@@ -55,6 +69,8 @@ impl Display for SettingsXAxis {
 pub struct RtpStreamsPlot {
     streams: RefStreams,
     points_data: Vec<PointData>,
+    stream_separator_lines: Vec<StreamSeperatorLine>,
+    stream_texts: Vec<StreamText>,
     x_axis: SettingsXAxis,
     requires_reset: bool,
     streams_visibility: HashMap<StreamKey, bool>,
@@ -71,6 +87,8 @@ impl RtpStreamsPlot {
         Self {
             streams,
             points_data: Vec::new(),
+            stream_separator_lines: Vec::new(),
+            stream_texts: Vec::new(),
             x_axis: RtpTimestamp,
             requires_reset: false,
             streams_visibility: HashMap::default(),
@@ -283,6 +301,27 @@ impl RtpStreamsPlot {
                 );
             }
         }
+        for separator in &self.stream_separator_lines {
+            let StreamSeperatorLine { x_start, x_end, y } = separator;
+            plot_ui.line(
+                Line::new(PlotPoints::new(vec![[*x_start, *y], [*x_end, *y]]))
+                    .color(Color32::GRAY)
+                    .style(LineStyle::Dashed { length: 3.0 })
+                    .width(0.5),
+            );
+        }
+
+        for text in &self.stream_texts {
+            let StreamText { x, y, on_hover } = text;
+            plot_ui.text(
+                Text::new(
+                    PlotPoint { x: *x, y: *y },
+                    RichText::new(on_hover).color(Color32::LIGHT_GRAY).strong(),
+                )
+                .anchor(Align2::RIGHT_TOP),
+            )
+        }
+
         if !self.first_draw && self.set_plot_bounds {
             plot_ui.set_plot_bounds(PlotBounds::from_min_max(
                 [(self.slider_current_min as f64) - 0.05, -0.5],
@@ -297,6 +336,8 @@ impl RtpStreamsPlot {
 
     fn refresh_points(&mut self) {
         self.points_data.clear();
+        self.stream_separator_lines.clear();
+        self.stream_texts.clear();
         let streams = self.streams.borrow();
         let mut points_x_and_y_top: Vec<(f64, f64)> = Vec::new();
         let mut previous_stream_max_y = 0.0;
@@ -306,6 +347,24 @@ impl RtpStreamsPlot {
                 return;
             }
 
+            let this_stream_y_baseline = match self.x_axis {
+                RtpTimestamp => previous_stream_max_y + 2000.0,
+                RawTimestamp => previous_stream_max_y + 20.0,
+                SequenceNumer => previous_stream_max_y + 20.0,
+            };
+            self.stream_texts.push(StreamText {
+                x: 0.0,
+                y: this_stream_y_baseline,
+                on_hover: String::from(&format!("{} ({:x})  ", stream.alias, stream.ssrc)),
+            });
+            if let Some((x, _)) = points_x_and_y_top.last() {
+                self.stream_separator_lines.push(StreamSeperatorLine {
+                    x_start: 0.0,
+                    x_end: *x,
+                    y: (this_stream_y_baseline + previous_stream_max_y) / 2.0,
+                })
+            };
+
             build_stream_points(
                 &streams,
                 &mut points_x_and_y_top,
@@ -314,6 +373,7 @@ impl RtpStreamsPlot {
                 &mut self.points_data,
                 &mut previous_stream_max_y,
                 &mut self.slider_max,
+                this_stream_y_baseline,
             );
         });
     }
@@ -328,8 +388,8 @@ fn build_stream_points(
     points_data: &mut Vec<PointData>,
     previous_stream_max_y: &mut f64,
     slider_max: &mut i64,
+    this_stream_y_baseline: f64,
 ) {
-    let this_stream_y_baseline = *previous_stream_max_y + 0.2 * *previous_stream_max_y;
     let rtp_packets = &stream.rtp_packets;
     let rtcp_packets = &stream.rtcp_packets;
     if rtp_packets.is_empty() {
