@@ -316,7 +316,7 @@ impl RtpStreamsPlot {
             plot_ui.text(
                 Text::new(
                     PlotPoint { x: *x, y: *y },
-                    RichText::new(on_hover).color(Color32::LIGHT_GRAY).strong(),
+                    RichText::new(on_hover).color(Color32::LIGHT_GRAY).strong().size(12.0),
                 )
                 .anchor(Align2::RIGHT_TOP),
             )
@@ -348,7 +348,7 @@ impl RtpStreamsPlot {
             }
 
             let this_stream_y_baseline = match self.x_axis {
-                RtpTimestamp => previous_stream_max_y + 2000.0,
+                RtpTimestamp => previous_stream_max_y + 0.15 * previous_stream_max_y,
                 RawTimestamp => previous_stream_max_y + 20.0,
                 SequenceNumer => previous_stream_max_y + 20.0,
             };
