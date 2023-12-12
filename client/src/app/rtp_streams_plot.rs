@@ -316,7 +316,10 @@ impl RtpStreamsPlot {
             plot_ui.text(
                 Text::new(
                     PlotPoint { x: *x, y: *y },
-                    RichText::new(on_hover).color(Color32::LIGHT_GRAY).strong().size(12.0),
+                    RichText::new(on_hover)
+                        .color(Color32::LIGHT_GRAY)
+                        .strong()
+                        .size(12.0),
                 )
                 .anchor(Align2::RIGHT_TOP),
             )
