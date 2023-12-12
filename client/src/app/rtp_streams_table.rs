@@ -125,7 +125,11 @@ fn build_jitter_plot(ui: &mut egui::Ui, stream: &Stream) {
             .collect();
 
         let line = Line::new(points).name("jitter");
-        Plot::new(format!("jitter plot {}", stream.ssrc))
+        let key = format!(
+            "{}{}{}{}",
+            stream.ssrc, stream.source_addr, stream.destination_addr, stream.protocol
+        );
+        Plot::new(key)
             .show_background(false)
             .show_axes([true, true])
             .label_formatter(|_name, value| {
