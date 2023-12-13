@@ -8,6 +8,7 @@ pub enum Error {
     DeviceUnavailable,
     CouldntReceivePacket,
     UnsupportedPacketType,
+    InvalidFilter,
 }
 
 type Result<T> = result::Result<T, Error>;
@@ -19,32 +20,46 @@ pub struct Sniffer<T: pcap::State> {
 }
 
 impl Sniffer<pcap::Offline> {
-    pub fn from_file(file: &str) -> Result<Self> {
-        match pcap::Capture::from_file(file) {
-            Ok(capture) => Ok(Self {
-                packet_id: 1,
-                capture,
-                source: Source::File(file.to_string()),
-            }),
-            Err(_) => Err(Error::FileNotFound),
+    pub fn from_file(file: &str, filter: Option<String>) -> Result<Self> {
+        let Ok(mut capture) = pcap::Capture::from_file(file) else {
+            return Err(Error::FileNotFound);
+        };
+
+        if let Some(filter) = filter {
+            let Ok(_) = capture.filter(&filter, true) else {
+                return Err(Error::InvalidFilter);
+            };
         }
+
+        Ok(Self {
+            packet_id: 1,
+            capture,
+            source: Source::File(file.to_string()),
+        })
     }
 }
 
 impl Sniffer<pcap::Active> {
-    pub fn from_device(device: &str) -> Result<Self> {
+    pub fn from_device(device: &str, filter: Option<String>) -> Result<Self> {
         let Ok(capture) = pcap::Capture::from_device(device) else {
             return Err(Error::DeviceNotFound);
         };
 
-        match capture.immediate_mode(true).open() {
-            Ok(capture) => Ok(Self {
-                packet_id: 1,
-                capture,
-                source: Source::Interface(device.to_string()),
-            }),
-            Err(_) => Err(Error::DeviceUnavailable),
+        let Ok(mut capture) = capture.immediate_mode(true).open() else {
+            return Err(Error::DeviceUnavailable);
+        };
+
+        if let Some(filter) = filter {
+            let Ok(_) = capture.filter(&filter, true) else {
+                return Err(Error::InvalidFilter);
+            };
         }
+
+        Ok(Self {
+            packet_id: 1,
+            capture,
+            source: Source::Interface(device.to_string()),
+        })
     }
 }
 
