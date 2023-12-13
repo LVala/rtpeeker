@@ -11,22 +11,22 @@ _Work in progress_
 rustup target add wasm32-unknown-unknown
 ```
 
-3. Install Trunk, WASM bundlind tool
+3. Install native dependencies, for Ubuntu/Debian:
+```console
+sudo apt install build-essential pkg-config libssl-dev libpcap-dev
+```
+
+4. Install Trunk, WASM bundling tool
 ```console
 cargo install --locked trunk
 ```
 
-4. Make sure to have `libpcap` installed, for Ubuntu:
-```console
-sudo apt install libpcap-dev
-```
-
 5. Install RTPeeker
 ```console
-cargo install --locked --git https://github.com/LVala/rtpeeker rtpeeker
+cargo install --locked --git https://github.com/LVala/rtpeeker --branch easier-install rtpeeker
 ```
 
-5. Run the app
+6. Run the app
 ```console
 rtpeeker --help
 ```
