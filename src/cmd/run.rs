@@ -14,6 +14,9 @@ pub struct Run {
     /// Network interfaces to capture the packets from
     #[arg(short, long, num_args = 1..)]
     interfaces: Vec<String>,
+    /// capture filter string in Wireshark/tcpdump syntax, applies to all sources
+    #[arg(short, long)]
+    capture: Option<String>,
     /// IP address used by the application
     #[arg(short, long, default_value_t = DEFAULT_IP)]
     address: IpAddr,
@@ -30,27 +33,34 @@ impl Run {
             return;
         }
 
-        let file_sniffers = get_sniffers(self.files, Sniffer::from_file);
-        let interface_sniffers = get_sniffers(self.interfaces, Sniffer::from_device);
+        let file_sniffers = get_sniffers(self.files, Sniffer::from_file, self.capture.clone());
+        let interface_sniffers = get_sniffers(self.interfaces, Sniffer::from_device, self.capture);
         let address = SocketAddr::new(self.address, self.port);
 
         server::run(interface_sniffers, file_sniffers, address).await;
     }
 }
 
-fn get_sniffers<T, F>(mut sources: Vec<String>, get_sniffer: F) -> HashMap<String, Sniffer<T>>
+fn get_sniffers<T, F>(
+    mut sources: Vec<String>,
+    get_sniffer: F,
+    filter: Option<String>,
+) -> HashMap<String, Sniffer<T>>
 where
     T: pcap::Activated,
-    F: Fn(&str) -> Result<Sniffer<T>, Error>,
+    F: Fn(&str, Option<String>) -> Result<Sniffer<T>, Error>,
 {
     sources.sort_unstable();
     sources.dedup();
     sources
         .into_iter()
-        .filter_map(|source| match get_sniffer(&source) {
+        .filter_map(|source| match get_sniffer(&source, filter.clone()) {
             Ok(sniffer) => Some((source, sniffer)),
-            Err(_) => {
-                println!("Failed to capture packets from source {}", source);
+            Err(err) => {
+                println!(
+                    "Failed to capture packets from source {}, reason: {:?}",
+                    source, err
+                );
                 None
             }
         })
