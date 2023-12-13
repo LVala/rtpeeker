@@ -30,3 +30,25 @@ cargo install --locked --git https://github.com/LVala/rtpeeker rtpeeker
 ```console
 rtpeeker --help
 ```
+
+## Usage
+
+List local network interfaces
+```console
+rtpeeker list
+```
+
+Capture from interface "en0" and file `./rtp.pcap`
+```console
+rtpeeker run -i en0 -f ./rtp.pcap
+```
+
+Apply capture filter (the same as in Wireshark or tcpdump)
+```console
+rtpeeker run -i en0 -c "src 192.0.0.5"
+```
+
+Show help explaining these options
+```console
+rtpeeker --help
+```
