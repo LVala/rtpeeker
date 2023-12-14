@@ -77,8 +77,8 @@ pub struct RtpStreamsPlot {
     last_rtp_packets_len: usize,
     set_plot_bounds: bool,
     slider_max: i64,
-    slider_current_min: i64,
-    slider_current_max: i64,
+    slider_start: i64,
+    slider_length: i64,
     first_draw: bool,
 }
 
@@ -95,8 +95,8 @@ impl RtpStreamsPlot {
             last_rtp_packets_len: 0,
             set_plot_bounds: false,
             slider_max: 10000,
-            slider_current_min: 0,
-            slider_current_max: 1,
+            slider_start: 0,
+            slider_length: 1,
             first_draw: true,
         }
     }
@@ -176,16 +176,16 @@ impl RtpStreamsPlot {
         let set_plot_button_clicked = ui.button("Set plot bounds").clicked();
 
         let (x_min_text, x_max_text) = match self.x_axis {
-            RtpTimestamp => ("First RTP timestamp", "Last RTP timestamp"),
-            RawTimestamp => ("First second", "Last second"),
-            SequenceNumer => ("First sequence number", "Last sequence number"),
+            RtpTimestamp => ("First RTP timestamp", "Length"),
+            RawTimestamp => ("First second", "Length"),
+            SequenceNumer => ("First sequence number", "Length"),
         };
 
         let max = (self.slider_max as f64 * 1.13) as i64;
         let x_min_resp =
-            ui.add(egui::Slider::new(&mut self.slider_current_min, 0..=max).text(x_min_text));
+            ui.add(egui::Slider::new(&mut self.slider_start, 0..=max).text(x_min_text));
         let x_max_resp =
-            ui.add(egui::Slider::new(&mut self.slider_current_max, 1..=max).text(x_max_text));
+            ui.add(egui::Slider::new(&mut self.slider_length, 1..=max).text(x_max_text));
 
         if set_plot_button_clicked | x_min_resp.dragged() | x_max_resp.dragged() {
             self.set_plot_bounds = true
@@ -221,8 +221,8 @@ impl RtpStreamsPlot {
                 {
                     self.x_axis = setting;
                     self.slider_max = 1;
-                    self.slider_current_max = 1;
-                    self.slider_current_min = 0;
+                    self.slider_length = 1;
+                    self.slider_start = 0;
                     self.requires_reset = true;
                 }
             });
@@ -306,7 +306,7 @@ impl RtpStreamsPlot {
             plot_ui.line(
                 Line::new(PlotPoints::new(vec![[*x_start, *y], [*x_end, *y]]))
                     .color(Color32::GRAY)
-                    .style(LineStyle::Dashed { length: 3.0 })
+                    .style(LineStyle::Solid)
                     .width(0.5),
             );
         }
@@ -327,8 +327,8 @@ impl RtpStreamsPlot {
 
         if !self.first_draw && self.set_plot_bounds {
             plot_ui.set_plot_bounds(PlotBounds::from_min_max(
-                [(self.slider_current_min as f64) - 0.05, -0.5],
-                [self.slider_current_max as f64, heighest_y * 1.55],
+                [(self.slider_start as f64) - 0.05, -0.5],
+                [(self.slider_start + self.slider_length) as f64, heighest_y * 1.55],
             ));
             self.set_plot_bounds = false
         }
@@ -351,7 +351,7 @@ impl RtpStreamsPlot {
             }
 
             let this_stream_y_baseline = match self.x_axis {
-                RtpTimestamp => previous_stream_max_y + 0.15 * previous_stream_max_y,
+                RtpTimestamp => previous_stream_max_y + 0.15 * previous_stream_max_y + 110.0,
                 RawTimestamp => previous_stream_max_y + 20.0,
                 SequenceNumer => previous_stream_max_y + 20.0,
             };
