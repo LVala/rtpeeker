@@ -198,11 +198,7 @@ impl Stream {
         }
 
         let unit = 1.0 / clock_rate as f64;
-        let arrival_diff = rtp_info
-            .time
-            .checked_sub(prev_rtp_info.time)
-            .unwrap()
-            .as_secs_f64();
+        let arrival_diff = (rtp_info.time - prev_rtp_info.time).as_secs_f64();
         let rtp_timestamp_diff =
             (rtp_info.packet.timestamp as i64 - prev_rtp_info.packet.timestamp as i64) as f64;
         let diff = arrival_diff - rtp_timestamp_diff * unit;

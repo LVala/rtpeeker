@@ -83,9 +83,9 @@ pub async fn run(
         });
 
     let routes = ws.or(warp::fs::dir(DIST_DIR));
-    println!("RTPeeker running on http://{}/", addr);
 
-    warp::serve(routes).run(addr).await;
+    println!("RTPeeker running on http://{}/", addr);
+    warp::serve(routes).try_bind(addr).await;
 }
 
 async fn client_connected(ws: WebSocket, clients: Clients, source_to_packets: PacketsMap) {
