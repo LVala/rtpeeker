@@ -351,7 +351,7 @@ impl RtpStreamsPlot {
             }
 
             let this_stream_y_baseline = match self.x_axis {
-                RtpTimestamp => previous_stream_max_y + 0.15 * previous_stream_max_y + 110.0,
+                RtpTimestamp => previous_stream_max_y + 0.15 * previous_stream_max_y + 60.0,
                 RawTimestamp => previous_stream_max_y + 20.0,
                 SequenceNumer => previous_stream_max_y + 20.0,
             };
