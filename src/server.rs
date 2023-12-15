@@ -145,7 +145,7 @@ async fn send_pcap_filenames(
 }
 
 async fn sniff<T: pcap::Activated>(mut sniffer: Sniffer<T>, packets: Packets, clients: Clients) {
-    while let Some(result) = sniffer.next_packet() {
+    while let Some(result) = sniffer.next_packet().await {
         match result {
             Ok(mut pack) => {
                 pack.guess_payload();
