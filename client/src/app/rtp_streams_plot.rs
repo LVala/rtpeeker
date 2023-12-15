@@ -330,7 +330,7 @@ impl RtpStreamsPlot {
                 [(self.slider_start as f64) - 0.05, -0.5],
                 [
                     (self.slider_start + self.slider_length) as f64,
-                    heighest_y * 1.55
+                    heighest_y * 1.55,
                 ],
             ));
             self.set_plot_bounds = false
