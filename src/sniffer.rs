@@ -20,16 +20,10 @@ pub struct Sniffer<T: pcap::State> {
 }
 
 impl Sniffer<pcap::Offline> {
-    pub fn from_file(file: &str, filter: Option<String>) -> Result<Self> {
-        let Ok(mut capture) = pcap::Capture::from_file(file) else {
+    pub fn from_file(file: &str) -> Result<Self> {
+        let Ok(capture) = pcap::Capture::from_file(file) else {
             return Err(Error::FileNotFound);
         };
-
-        if let Some(filter) = filter {
-            let Ok(_) = capture.filter(&filter, true) else {
-                return Err(Error::InvalidFilter);
-            };
-        }
 
         Ok(Self {
             packet_id: 1,
@@ -40,20 +34,14 @@ impl Sniffer<pcap::Offline> {
 }
 
 impl Sniffer<pcap::Active> {
-    pub fn from_device(device: &str, filter: Option<String>) -> Result<Self> {
+    pub fn from_device(device: &str) -> Result<Self> {
         let Ok(capture) = pcap::Capture::from_device(device) else {
             return Err(Error::DeviceNotFound);
         };
 
-        let Ok(mut capture) = capture.immediate_mode(true).open() else {
+        let Ok(capture) = capture.immediate_mode(true).open() else {
             return Err(Error::DeviceUnavailable);
         };
-
-        if let Some(filter) = filter {
-            let Ok(_) = capture.filter(&filter, true) else {
-                return Err(Error::InvalidFilter);
-            };
-        }
 
         Ok(Self {
             packet_id: 1,
@@ -64,6 +52,12 @@ impl Sniffer<pcap::Active> {
 }
 
 impl<T: pcap::Activated> Sniffer<T> {
+    pub fn apply_filter(&mut self, filter: &str) -> Result<()> {
+        self.capture
+            .filter(filter, true)
+            .map_err(|_| Error::InvalidFilter)
+    }
+
     pub fn next_packet(&mut self) -> Option<Result<Packet>> {
         let packet = match self.capture.next_packet() {
             Ok(pack) => pack,
