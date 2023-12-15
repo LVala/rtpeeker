@@ -66,10 +66,9 @@ impl Run {
     }
 }
 
-fn get_sniffers<T, F>(mut sources: Vec<String>, get_sniffer: F) -> HashMap<String, Sniffer<T>>
+fn get_sniffers<F>(mut sources: Vec<String>, get_sniffer: F) -> HashMap<String, Sniffer>
 where
-    T: pcap::Activated,
-    F: Fn(&str) -> Result<Sniffer<T>, Error>,
+    F: Fn(&str) -> Result<Sniffer, Error>,
 {
     sources.sort_unstable();
     sources.dedup();
@@ -88,10 +87,7 @@ where
         .collect()
 }
 
-fn apply_filters<T>(sniffers: &mut HashMap<String, Sniffer<T>>, filter: &str) -> Result<(), Error>
-where
-    T: pcap::Activated,
-{
+fn apply_filters(sniffers: &mut HashMap<String, Sniffer>, filter: &str) -> Result<(), Error> {
     for (_, sniffer) in sniffers.iter_mut() {
         if let err @ Err(_) = sniffer.apply_filter(filter) {
             return err;
