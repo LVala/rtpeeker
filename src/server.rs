@@ -81,12 +81,7 @@ async fn client_connected(ws: WebSocket, clients: Clients, source_to_packets: Pa
 
     send_pcap_filenames(&client_id, &mut ws_tx, &source_to_packets).await;
 
-    // FIXME: something is very wrong here
-    // if buffer size is > 1, rx.recv always waits
-    // until channel's buffer is full before receiving
-    // might be because of blocking sniffers
     let (tx, mut rx) = mpsc::unbounded_channel();
-    // let (tx, mut rx) = mpsc::channel(1);
 
     tokio::task::spawn(async move {
         while let Some(message) = rx.recv().await {

@@ -38,7 +38,6 @@ impl PacketCodec for PacketDecoder {
 }
 
 // well, it's not technically a Stream...
-// but we'll gonna pretend as if it was
 struct OfflineStream {
     capture: Capture<pcap::Offline>,
     decoder: PacketDecoder,
@@ -94,7 +93,6 @@ impl Sniffer {
             return Err(Error::DeviceUnavailable);
         };
 
-        // error
         let Ok(capture) = capture.setnonblock() else {
             return Err(Error::DeviceUnavailable);
         };
