@@ -13,7 +13,7 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc,
 };
-use tokio::sync::{mpsc, mpsc::Sender, RwLock};
+use tokio::sync::{mpsc, mpsc::UnboundedSender, RwLock};
 use warp::ws::{Message, WebSocket};
 use warp::Filter;
 
@@ -22,12 +22,12 @@ const WS_PATH: &str = "ws";
 static NEXT_CLIENT_ID: AtomicUsize = AtomicUsize::new(1);
 
 struct Client {
-    pub sender: mpsc::Sender<Message>,
+    pub sender: mpsc::UnboundedSender<Message>,
     pub source: Option<Source>,
 }
 
 impl Client {
-    pub fn new(sender: mpsc::Sender<Message>) -> Self {
+    pub fn new(sender: mpsc::UnboundedSender<Message>) -> Self {
         Self {
             sender,
             source: None,
@@ -39,30 +39,14 @@ type Clients = Arc<RwLock<HashMap<usize, Client>>>;
 type Packets = Arc<RwLock<Vec<Response>>>;
 type PacketsMap = Arc<HashMap<Source, Packets>>;
 
-pub async fn run(
-    interface_sniffers: HashMap<String, Sniffer>,
-    file_sniffers: HashMap<String, Sniffer>,
-    addr: SocketAddr,
-) {
+pub async fn run(sniffers: HashMap<String, Sniffer>, addr: SocketAddr) {
     let clients = Clients::default();
     let mut source_to_packets = HashMap::new();
 
     // a bit of repetition, but Rust bested me this time
-    for (file, sniffer) in file_sniffers {
+    for (_file, sniffer) in sniffers {
         let packets = Packets::default();
-        let source = Source::File(file);
-        source_to_packets.insert(source, packets.clone());
-
-        let cloned_clients = clients.clone();
-        tokio::task::spawn(async move {
-            sniff(sniffer, packets, cloned_clients).await;
-        });
-    }
-
-    for (interface, sniffer) in interface_sniffers {
-        let packets = Packets::default();
-        let source = Source::Interface(interface);
-        source_to_packets.insert(source, packets.clone());
+        source_to_packets.insert(sniffer.source.clone(), packets.clone());
 
         let cloned_clients = clients.clone();
         tokio::task::spawn(async move {
@@ -101,7 +85,8 @@ async fn client_connected(ws: WebSocket, clients: Clients, source_to_packets: Pa
     // if buffer size is > 1, rx.recv always waits
     // until channel's buffer is full before receiving
     // might be because of blocking sniffers
-    let (tx, mut rx) = mpsc::channel(1);
+    let (tx, mut rx) = mpsc::unbounded_channel();
+    // let (tx, mut rx) = mpsc::channel(1);
 
     tokio::task::spawn(async move {
         while let Some(message) = rx.recv().await {
@@ -162,12 +147,9 @@ async fn sniff(mut sniffer: Sniffer, packets: Packets, clients: Clients) {
                             source: Some(source),
                             sender,
                         } if *source == sniffer.source => {
-                            sender
-                                .send(msg.clone())
-                                .unwrap_or_else(|e| {
-                                    error!("Sniffer: error while sending packet: {}", e);
-                                })
-                                .await;
+                            sender.send(msg.clone()).unwrap_or_else(|e| {
+                                error!("Sniffer: error while sending packet: {}", e);
+                            });
                         }
                         _ => {}
                     }
@@ -179,19 +161,20 @@ async fn sniff(mut sniffer: Sniffer, packets: Packets, clients: Clients) {
     }
 }
 
-async fn send_all_packets(client_id: usize, packets: &Packets, ws_tx: &mut Sender<Message>) {
+async fn send_all_packets(
+    client_id: usize,
+    packets: &Packets,
+    ws_tx: &mut UnboundedSender<Message>,
+) {
     for pack in packets.read().await.iter() {
         let Ok(encoded) = pack.encode() else {
             error!("Failed to encode packet, client_id: {}", client_id);
             continue;
         };
         let msg = Message::binary(encoded);
-        ws_tx
-            .send(msg)
-            .unwrap_or_else(|e| {
-                error!("WebSocket `feed` error: {}, client_id: {}", e, client_id);
-            })
-            .await;
+        ws_tx.send(msg).unwrap_or_else(|e| {
+            error!("WebSocket `feed` error: {}, client_id: {}", e, client_id);
+        });
     }
 
     info!(
@@ -233,12 +216,9 @@ async fn reparse_packet(
                 source: Some(source),
                 sender,
             } if *source == *cur_source => {
-                sender
-                    .send(msg.clone())
-                    .unwrap_or_else(|e| {
-                        error!("Sniffer: error while sending packet: {}", e);
-                    })
-                    .await;
+                sender.send(msg.clone()).unwrap_or_else(|e| {
+                    error!("Sniffer: error while sending packet: {}", e);
+                });
             }
             _ => {}
         };
