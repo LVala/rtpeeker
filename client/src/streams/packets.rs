@@ -47,7 +47,7 @@ impl Packets {
 
     pub fn id_count(&self) -> usize {
         match self.packets.last_key_value() {
-            Some((id, _)) => id + 1,
+            Some((id, _)) => *id,
             None => 0,
         }
     }

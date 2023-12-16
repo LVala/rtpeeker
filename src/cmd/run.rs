@@ -32,12 +32,6 @@ impl Run {
         let mut file_sniffers = get_sniffers(self.files, Sniffer::from_file);
         let mut interface_sniffers = get_sniffers(self.interfaces, Sniffer::from_device);
 
-        if file_sniffers.is_empty() && interface_sniffers.is_empty() {
-            // TODO: use some pretty printing (colors, bold font etc.)
-            println!("Error: no valid sources were passed");
-            return;
-        }
-
         let file_res = apply_filters(&mut file_sniffers, &self.capture);
         let interface_res = apply_filters(&mut interface_sniffers, &live_filter);
 
@@ -46,8 +40,19 @@ impl Run {
             return;
         }
 
+        let sniffers: HashMap<_, _> = file_sniffers
+            .into_iter()
+            .chain(interface_sniffers)
+            .collect();
+
+        if sniffers.is_empty() {
+            // TODO: use some pretty printing (colors, bold font etc.)
+            println!("Error: no valid sources were passed");
+            return;
+        }
+
         let address = SocketAddr::new(self.address, self.port);
-        server::run(interface_sniffers, file_sniffers, address).await;
+        server::run(sniffers, address).await;
     }
 
     fn create_capture_filter(&self) -> String {
@@ -66,10 +71,9 @@ impl Run {
     }
 }
 
-fn get_sniffers<T, F>(mut sources: Vec<String>, get_sniffer: F) -> HashMap<String, Sniffer<T>>
+fn get_sniffers<F>(mut sources: Vec<String>, get_sniffer: F) -> HashMap<String, Sniffer>
 where
-    T: pcap::Activated,
-    F: Fn(&str) -> Result<Sniffer<T>, Error>,
+    F: Fn(&str) -> Result<Sniffer, Error>,
 {
     sources.sort_unstable();
     sources.dedup();
@@ -88,10 +92,7 @@ where
         .collect()
 }
 
-fn apply_filters<T>(sniffers: &mut HashMap<String, Sniffer<T>>, filter: &str) -> Result<(), Error>
-where
-    T: pcap::Activated,
-{
+fn apply_filters(sniffers: &mut HashMap<String, Sniffer>, filter: &str) -> Result<(), Error> {
     for (_, sniffer) in sniffers.iter_mut() {
         if let err @ Err(_) = sniffer.apply_filter(filter) {
             return err;
