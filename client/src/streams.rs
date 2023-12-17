@@ -1,5 +1,6 @@
 use packets::Packets;
 use rtpeeker_common::packet::SessionPacket;
+use rtpeeker_common::StreamKey;
 use rtpeeker_common::{packet::TransportProtocol, Packet, RtcpPacket};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -11,7 +12,6 @@ mod packets;
 pub mod stream;
 
 pub type RefStreams = Rc<RefCell<Streams>>;
-pub type StreamKey = (SocketAddr, SocketAddr, TransportProtocol, u32);
 
 #[derive(Debug, Default)]
 pub struct Streams {

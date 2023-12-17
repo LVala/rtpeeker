@@ -12,4 +12,5 @@ pcap = "1.0.0"
 etherparse = "0.13.0"
 rtp = "0.9"
 rtcp = { git = "https://github.com/LVala/webrtc.git" }
+webrtc-sdp = "0.3"
 webrtc-util = "0.8.0"

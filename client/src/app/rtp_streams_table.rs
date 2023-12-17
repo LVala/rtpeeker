@@ -1,19 +1,30 @@
-use crate::streams::{stream::Stream, RefStreams, StreamKey};
+use crate::streams::{stream::Stream, RefStreams};
 use egui::plot::{Line, Plot, PlotPoints};
 use egui::{TextEdit, Vec2};
 use egui_extras::{Column, TableBody, TableBuilder};
+use ewebsock::{WsMessage, WsSender};
+use rtpeeker_common::{Request, StreamKey};
+
+const SDP_PROMPT: &str = "Paste your SDP media section here, e.g.
+m=audio 5004 RTP/AVP 96
+c=IN IP4 239.30.22.1
+a=rtpmap:96 L24/48000/2
+a=recvonly
+";
 
 pub struct RtpStreamsTable {
     streams: RefStreams,
+    ws_sender: WsSender,
     sdp_window_open: bool,
     chosen_key: Option<StreamKey>,
     sdp: String,
 }
 
 impl RtpStreamsTable {
-    pub fn new(streams: RefStreams) -> Self {
+    pub fn new(streams: RefStreams, ws_sender: WsSender) -> Self {
         Self {
             streams,
+            ws_sender,
             sdp_window_open: false,
             chosen_key: None,
             sdp: String::new(),
@@ -32,6 +43,8 @@ impl RtpStreamsTable {
             return;
         };
 
+        let mut send_sdp = false;
+
         egui::Window::new(format!("SDP - {:x}", ssrc))
             .open(&mut self.sdp_window_open)
             .default_width(800.0)
@@ -39,15 +52,20 @@ impl RtpStreamsTable {
             .vscroll(true)
             .show(ctx, |ui| {
                 TextEdit::multiline(&mut self.sdp)
-                    .hint_text("Paste your SDP m-line here...")
+                    .hint_text(SDP_PROMPT)
                     .desired_rows(30)
                     .desired_width(f32::INFINITY)
                     .show(ui);
                 ui.add_space(10.0);
                 if ui.button(format!("Set SDP for {:x}", ssrc)).clicked() {
-                    // TODO: SDP handling
+                    send_sdp = true;
                 }
             });
+
+        if send_sdp {
+            self.send_sdp_request();
+            self.sdp_window_open = false;
+        }
     }
 
     fn build_table(&mut self, ui: &mut egui::Ui) {
@@ -152,6 +170,18 @@ impl RtpStreamsTable {
                 }
             });
         });
+    }
+
+    fn send_sdp_request(&mut self) {
+        let request = Request::ParseSdp(self.chosen_key.unwrap(), self.sdp.clone());
+
+        let Ok(msg) = request.encode() else {
+            log::error!("Failed to encode a request message");
+            return;
+        };
+        let msg = WsMessage::Binary(msg);
+
+        self.ws_sender.send(msg);
     }
 }
 
