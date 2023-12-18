@@ -5,15 +5,15 @@ use futures_util::{
 };
 use log::{error, info, warn};
 use rtpeeker_common::packet::SessionProtocol;
-use rtpeeker_common::Source;
-use rtpeeker_common::{Request, Response};
+use rtpeeker_common::{Request, Response, Sdp};
+use rtpeeker_common::{Source, StreamKey};
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc,
 };
-use tokio::sync::{mpsc, mpsc::Sender, RwLock};
+use tokio::sync::{mpsc, mpsc::UnboundedSender, RwLock};
 use warp::ws::{Message, WebSocket};
 use warp::Filter;
 
@@ -22,12 +22,12 @@ const WS_PATH: &str = "ws";
 static NEXT_CLIENT_ID: AtomicUsize = AtomicUsize::new(1);
 
 struct Client {
-    pub sender: mpsc::Sender<Message>,
+    pub sender: mpsc::UnboundedSender<Message>,
     pub source: Option<Source>,
 }
 
 impl Client {
-    pub fn new(sender: mpsc::Sender<Message>) -> Self {
+    pub fn new(sender: mpsc::UnboundedSender<Message>) -> Self {
         Self {
             sender,
             source: None,
@@ -39,30 +39,14 @@ type Clients = Arc<RwLock<HashMap<usize, Client>>>;
 type Packets = Arc<RwLock<Vec<Response>>>;
 type PacketsMap = Arc<HashMap<Source, Packets>>;
 
-pub async fn run(
-    interface_sniffers: HashMap<String, Sniffer<pcap::Active>>,
-    file_sniffers: HashMap<String, Sniffer<pcap::Offline>>,
-    addr: SocketAddr,
-) {
+pub async fn run(sniffers: HashMap<String, Sniffer>, addr: SocketAddr) {
     let clients = Clients::default();
     let mut source_to_packets = HashMap::new();
 
     // a bit of repetition, but Rust bested me this time
-    for (file, sniffer) in file_sniffers {
+    for (_file, sniffer) in sniffers {
         let packets = Packets::default();
-        let source = Source::File(file);
-        source_to_packets.insert(source, packets.clone());
-
-        let cloned_clients = clients.clone();
-        tokio::task::spawn(async move {
-            sniff(sniffer, packets, cloned_clients).await;
-        });
-    }
-
-    for (interface, sniffer) in interface_sniffers {
-        let packets = Packets::default();
-        let source = Source::Interface(interface);
-        source_to_packets.insert(source, packets.clone());
+        source_to_packets.insert(sniffer.source.clone(), packets.clone());
 
         let cloned_clients = clients.clone();
         tokio::task::spawn(async move {
@@ -83,9 +67,9 @@ pub async fn run(
         });
 
     let routes = ws.or(warp::fs::dir(DIST_DIR));
-    println!("RTPeeker running on http://{}/", addr);
 
-    warp::serve(routes).run(addr).await;
+    println!("RTPeeker running on http://{}/", addr);
+    warp::serve(routes).try_bind(addr).await;
 }
 
 async fn client_connected(ws: WebSocket, clients: Clients, source_to_packets: PacketsMap) {
@@ -97,11 +81,7 @@ async fn client_connected(ws: WebSocket, clients: Clients, source_to_packets: Pa
 
     send_pcap_filenames(&client_id, &mut ws_tx, &source_to_packets).await;
 
-    // FIXME: something is very wrong here
-    // if buffer size is > 1, rx.recv always waits
-    // until channel's buffer is full before receiving
-    // might be because of blocking sniffers
-    let (tx, mut rx) = mpsc::channel(1);
+    let (tx, mut rx) = mpsc::unbounded_channel();
 
     tokio::task::spawn(async move {
         while let Some(message) = rx.recv().await {
@@ -144,11 +124,13 @@ async fn send_pcap_filenames(
         .await;
 }
 
-async fn sniff<T: pcap::Activated>(mut sniffer: Sniffer<T>, packets: Packets, clients: Clients) {
-    while let Some(result) = sniffer.next_packet() {
+async fn sniff(mut sniffer: Sniffer, packets: Packets, clients: Clients) {
+    while let Some(result) = sniffer.next_packet().await {
         match result {
             Ok(mut pack) => {
                 pack.guess_payload();
+                // TODO: Packet send via WebSocket contains its
+                // payload, which is undesired
                 let response = Response::Packet(pack);
 
                 let Ok(encoded) = response.encode() else {
@@ -162,12 +144,9 @@ async fn sniff<T: pcap::Activated>(mut sniffer: Sniffer<T>, packets: Packets, cl
                             source: Some(source),
                             sender,
                         } if *source == sniffer.source => {
-                            sender
-                                .send(msg.clone())
-                                .unwrap_or_else(|e| {
-                                    error!("Sniffer: error while sending packet: {}", e);
-                                })
-                                .await;
+                            sender.send(msg.clone()).unwrap_or_else(|e| {
+                                error!("Sniffer: error while sending packet: {}", e);
+                            });
                         }
                         _ => {}
                     }
@@ -179,19 +158,20 @@ async fn sniff<T: pcap::Activated>(mut sniffer: Sniffer<T>, packets: Packets, cl
     }
 }
 
-async fn send_all_packets(client_id: usize, packets: &Packets, ws_tx: &mut Sender<Message>) {
+async fn send_all_packets(
+    client_id: usize,
+    packets: &Packets,
+    ws_tx: &mut UnboundedSender<Message>,
+) {
     for pack in packets.read().await.iter() {
         let Ok(encoded) = pack.encode() else {
             error!("Failed to encode packet, client_id: {}", client_id);
             continue;
         };
         let msg = Message::binary(encoded);
-        ws_tx
-            .send(msg)
-            .unwrap_or_else(|e| {
-                error!("WebSocket `feed` error: {}, client_id: {}", e, client_id);
-            })
-            .await;
+        ws_tx.send(msg).unwrap_or_else(|e| {
+            error!("WebSocket `feed` error: {}, client_id: {}", e, client_id);
+        });
     }
 
     info!(
@@ -233,12 +213,46 @@ async fn reparse_packet(
                 source: Some(source),
                 sender,
             } if *source == *cur_source => {
-                sender
-                    .send(msg.clone())
-                    .unwrap_or_else(|e| {
-                        error!("Sniffer: error while sending packet: {}", e);
-                    })
-                    .await;
+                sender.send(msg.clone()).unwrap_or_else(|e| {
+                    error!("Sniffer: error while sending packet: {}", e);
+                });
+            }
+            _ => {}
+        };
+    }
+}
+
+async fn parse_sdp(
+    client_id: usize,
+    clients: &Clients,
+    cur_source: &Source,
+    stream_key: StreamKey,
+    raw_sdp: String,
+) {
+    let Some(sdp) = Sdp::build(raw_sdp) else {
+        log::warn!(
+            "Received invalid SDP for {:?}: {:?}",
+            cur_source,
+            stream_key
+        );
+        return;
+    };
+
+    let Ok(encoded) = Response::Sdp(stream_key, sdp).encode() else {
+        error!("Failed to encode sdp, client_id: {}", client_id);
+        return;
+    };
+
+    let msg = Message::binary(encoded);
+    for (_, client) in clients.read().await.iter() {
+        match client {
+            Client {
+                source: Some(source),
+                sender,
+            } if *source == *cur_source => {
+                sender.send(msg.clone()).unwrap_or_else(|e| {
+                    error!("Sniffer: error while sending sdp: {}", e);
+                });
             }
             _ => {}
         };
@@ -308,6 +322,11 @@ async fn handle_messages(
                         std::mem::drop(wr_clients);
 
                         send_all_packets(client_id, packets, &mut sender).await;
+                    }
+                    Request::ParseSdp(stream_key, sdp) => {
+                        if let Some(source) = &source {
+                            parse_sdp(client_id, clients, source, stream_key, sdp).await;
+                        }
                     }
                 };
             }
