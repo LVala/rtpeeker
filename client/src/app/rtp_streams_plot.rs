@@ -185,7 +185,7 @@ impl RtpStreamsPlot {
 
             keys.iter().for_each(|&key| {
                 let alias = streams.get(key).unwrap().alias.to_string();
-                aliases.push((key.clone(), alias));
+                aliases.push((*key, alias));
             });
             aliases.sort_by(|(_, a), (_, b)| a.cmp(b));
 
