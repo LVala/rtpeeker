@@ -191,7 +191,7 @@ fn build_jitter_plot(ui: &mut egui::Ui, stream: &Stream) {
             .rtp_packets
             .iter()
             .enumerate()
-            .filter_map(|(ix, rtp)| rtp.jitter.map(|jitter| [ix as f64, jitter]))
+            .filter_map(|(ix, rtp)| rtp.jitter.map(|jitter| [ix as f64, jitter * 1000.0]))
             .collect();
 
         let line = Line::new(points).name("jitter");

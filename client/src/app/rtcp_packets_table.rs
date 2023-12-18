@@ -198,7 +198,11 @@ fn build_reception_reports(ui: &mut Ui, reports: &Vec<ReceptionReport>) {
                     "Extended highest sequence number:",
                     report.last_sequence_number.to_string(),
                 );
-                build_label(ui, "Interarrival jitter:", report.jitter.to_string());
+                build_label(
+                    ui,
+                    "Interarrival jitter:",
+                    format!("{} RTP timestamp units", report.jitter),
+                );
                 build_label(
                     ui,
                     "Last SR timestamp:",
