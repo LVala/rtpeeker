@@ -4,7 +4,7 @@ use eframe::egui;
 use egui::{ComboBox, Ui};
 use ewebsock::{WsEvent, WsMessage, WsReceiver, WsSender};
 use log::{error, warn};
-use rtpeeker_common::{Request, Response, Source};
+use rtpeeker_common::{Request, Response, Source, StreamKey};
 
 use packets_table::PacketsTable;
 use rtcp_packets_table::RtcpPacketsTable;
@@ -12,7 +12,7 @@ use rtp_packets_table::RtpPacketsTable;
 use rtp_streams_table::RtpStreamsTable;
 use tab::Tab;
 
-use crate::streams::{RefStreams, StreamKey};
+use crate::streams::RefStreams;
 use rtp_streams_plot::RtpStreamsPlot;
 
 mod packets_table;
@@ -79,7 +79,7 @@ impl App {
         let packets_table = PacketsTable::new(streams.clone(), ws_sender.clone());
         let rtp_packets_table = RtpPacketsTable::new(streams.clone());
         let rtcp_packets_table = RtcpPacketsTable::new(streams.clone());
-        let rtp_streams_table = RtpStreamsTable::new(streams.clone());
+        let rtp_streams_table = RtpStreamsTable::new(streams.clone(), ws_sender.clone());
         let rtp_streams_plot = RtpStreamsPlot::new(streams.clone());
 
         let (tab, selected_source) = get_initial_state(cc);
@@ -244,7 +244,7 @@ impl App {
             };
 
             let Ok(response) = Response::decode(&msg) else {
-                error!("Failed to decode request message");
+                error!("Failed to decode response message");
                 continue;
             };
 
@@ -262,6 +262,12 @@ impl App {
                         }
                     }
                     self.sources = sources;
+                }
+                Response::Sdp(stream_key, sdp) => {
+                    let mut streams = self.streams.borrow_mut();
+                    if let Some(stream) = streams.streams.get_mut(&stream_key) {
+                        stream.add_sdp(sdp);
+                    }
                 }
             }
         }

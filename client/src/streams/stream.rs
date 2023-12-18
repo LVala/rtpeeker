@@ -1,7 +1,8 @@
 use crate::utils::ntp_to_f64;
 use rtpeeker_common::packet::TransportProtocol;
 use rtpeeker_common::rtcp::{source_description::SdesType, SourceDescription};
-use rtpeeker_common::{Packet, RtcpPacket, RtpPacket};
+use rtpeeker_common::rtp::payload_type::PayloadType;
+use rtpeeker_common::{Packet, RtcpPacket, RtpPacket, Sdp};
 use std::cmp::{max, min};
 use std::net::SocketAddr;
 use std::time::Duration;
@@ -55,6 +56,7 @@ pub struct Stream {
     last_sequence_number: u16,
     first_time: Duration,
     last_time: Duration,
+    sdp: Option<Sdp>,
     // ntp synchronization
     pub ntp_rtp: Option<(u64, u32)>,
     pub estimated_clock_rate: Option<f64>,
@@ -92,9 +94,15 @@ impl Stream {
             last_sequence_number: rtp.sequence_number,
             first_time: packet.timestamp,
             last_time: packet.timestamp,
+            sdp: None,
             ntp_rtp: None,
             estimated_clock_rate: None,
         }
+    }
+
+    pub fn add_sdp(&mut self, sdp: Sdp) {
+        self.sdp = Some(sdp);
+        self.recalculate();
     }
 
     pub fn get_duration(&self) -> Duration {
@@ -161,6 +169,22 @@ impl Stream {
         self.rtcp_packets.push(rtcp_info);
     }
 
+    fn recalculate(&mut self) {
+        let mut rtp_packets = std::mem::take(&mut self.rtp_packets).into_iter();
+        let rtp_info = rtp_packets.next().unwrap();
+        self.bytes = rtp_info.bytes;
+        self.max_jitter = 0.0;
+        self.sum_jitter = 0.0;
+        self.jitter_count = 0;
+        self.first_sequence_number = rtp_info.packet.sequence_number;
+        self.last_sequence_number = rtp_info.packet.sequence_number;
+        self.first_time = rtp_info.time;
+        self.last_time = rtp_info.time;
+        self.rtp_packets = vec![rtp_info];
+
+        rtp_packets.for_each(|rtp| self.update_rtp_parameters(rtp));
+    }
+
     fn update_rtp_parameters(&mut self, mut rtp_info: RtpInfo) {
         rtp_info.time_delta = rtp_info.time - self.rtp_packets.last().unwrap().time;
 
@@ -184,8 +208,22 @@ impl Stream {
         // TODO
     }
 
+    fn get_payload_type(&self, rtp_info: &RtpInfo) -> PayloadType {
+        let id = &rtp_info.packet.payload_type.id;
+
+        if let Some(sdp) = &self.sdp {
+            if let Some(pt) = sdp.payload_types.get(id) {
+                return pt.clone();
+            }
+        };
+
+        rtp_info.packet.payload_type.clone()
+    }
+
     fn update_jitter(&mut self, rtp_info: &mut RtpInfo) {
-        let Some(clock_rate) = rtp_info.packet.payload_type.clock_rate else {
+        let payload_type = self.get_payload_type(rtp_info);
+
+        let Some(clock_rate) = payload_type.clock_rate else {
             return;
         };
 
