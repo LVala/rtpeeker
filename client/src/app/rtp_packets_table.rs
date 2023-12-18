@@ -27,17 +27,21 @@ impl RtpPacketsTable {
     }
 
     fn options_ui(&mut self, ui: &mut egui::Ui) {
-        let streams = self.streams.borrow();
-        let stream_keys: Vec<_> = streams.streams.keys().collect();
+        let mut aliases = Vec::new();
+        let streams = &self.streams.borrow().streams;
+        let keys: Vec<_> = streams.keys().collect();
+
+        keys.iter().for_each(|&key| {
+            let alias = streams.get(key).unwrap().alias.to_string();
+            aliases.push((key.clone(), alias));
+        });
+        aliases.sort_by(|(_, a), (_, b)| a.cmp(b));
 
         ui.horizontal_wrapped(|ui| {
             ui.label("Filter by: ");
-            stream_keys.iter().for_each(|&key| {
+            aliases.iter().for_each(|(key, alias)| {
                 let selected = is_stream_visible(&mut self.streams_visibility, *key);
-                ui.checkbox(
-                    selected,
-                    streams.streams.get(key).unwrap().alias.to_string(),
-                );
+                ui.checkbox(selected, alias);
             });
         });
         ui.vertical(|ui| {

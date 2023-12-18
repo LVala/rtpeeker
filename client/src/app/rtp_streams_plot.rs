@@ -179,14 +179,20 @@ impl RtpStreamsPlot {
 
     fn toggle_streams(&mut self, ui: &mut Ui) {
         ui.horizontal_wrapped(|ui| {
+            let mut aliases = Vec::new();
             let streams = &self.streams.borrow().streams;
             let keys: Vec<_> = streams.keys().collect();
 
-            ui.label(RichText::from("Toggle streams: ").strong());
             keys.iter().for_each(|&key| {
+                let alias = streams.get(key).unwrap().alias.to_string();
+                aliases.push((key.clone(), alias));
+            });
+            aliases.sort_by(|(_, a), (_, b)| a.cmp(b));
+
+            ui.label(RichText::from("Toggle streams: ").strong());
+            aliases.iter().for_each(|(key, alias)| {
                 let selected = is_stream_visible(&mut self.streams_visibility, *key);
-                let resp = ui.checkbox(selected, streams.get(key).unwrap().alias.to_string());
-                if resp.clicked() {
+                if ui.checkbox(selected, alias).clicked() {
                     self.requires_reset = true
                 }
             });
