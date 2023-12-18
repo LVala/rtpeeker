@@ -564,7 +564,7 @@ fn build_stream_points(
 
 fn build_reception_report(on_hover: &mut String, report: &&ReceptionReport) {
     on_hover.push_str(&"-".repeat(160));
-    on_hover.push_str("\n");
+    on_hover.push('\n');
     on_hover.push_str(&format!("SSRC: {:x}\t", report.ssrc));
     on_hover.push_str(&format!("Fraction lost: {}\t", report.fraction_lost));
     on_hover.push_str(&format!("Cumulative lost: {}\t", report.total_lost));
