@@ -5,8 +5,8 @@ use futures_util::{
 };
 use log::{error, info, warn};
 use rtpeeker_common::packet::SessionProtocol;
-use rtpeeker_common::Source;
-use rtpeeker_common::{Request, Response};
+use rtpeeker_common::{Request, Response, Sdp};
+use rtpeeker_common::{Source, StreamKey};
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::{
@@ -129,6 +129,8 @@ async fn sniff(mut sniffer: Sniffer, packets: Packets, clients: Clients) {
         match result {
             Ok(mut pack) => {
                 pack.guess_payload();
+                // TODO: Packet send via WebSocket contains its
+                // payload, which is undesired
                 let response = Response::Packet(pack);
 
                 let Ok(encoded) = response.encode() else {
@@ -220,6 +222,43 @@ async fn reparse_packet(
     }
 }
 
+async fn parse_sdp(
+    client_id: usize,
+    clients: &Clients,
+    cur_source: &Source,
+    stream_key: StreamKey,
+    raw_sdp: String,
+) {
+    let Some(sdp) = Sdp::build(raw_sdp) else {
+        log::warn!(
+            "Received invalid SDP for {:?}: {:?}",
+            cur_source,
+            stream_key
+        );
+        return;
+    };
+
+    let Ok(encoded) = Response::Sdp(stream_key, sdp).encode() else {
+        error!("Failed to encode sdp, client_id: {}", client_id);
+        return;
+    };
+
+    let msg = Message::binary(encoded);
+    for (_, client) in clients.read().await.iter() {
+        match client {
+            Client {
+                source: Some(source),
+                sender,
+            } if *source == *cur_source => {
+                sender.send(msg.clone()).unwrap_or_else(|e| {
+                    error!("Sniffer: error while sending sdp: {}", e);
+                });
+            }
+            _ => {}
+        };
+    }
+}
+
 async fn handle_messages(
     client_id: usize,
     mut ws_rx: SplitStream<WebSocket>,
@@ -283,6 +322,11 @@ async fn handle_messages(
                         std::mem::drop(wr_clients);
 
                         send_all_packets(client_id, packets, &mut sender).await;
+                    }
+                    Request::ParseSdp(stream_key, sdp) => {
+                        if let Some(source) = &source {
+                            parse_sdp(client_id, clients, source, stream_key, sdp).await;
+                        }
                     }
                 };
             }

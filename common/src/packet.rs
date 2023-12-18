@@ -1,5 +1,4 @@
 use super::{RtcpPacket, RtpPacket};
-use bincode;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::net::SocketAddr;
@@ -75,12 +74,6 @@ pub struct Packet {
     pub contents: SessionPacket,
 }
 
-impl Packet {
-    pub fn decode(bytes: &[u8]) -> Result<Self, bincode::Error> {
-        bincode::deserialize(bytes)
-    }
-}
-
 #[cfg(not(target_arch = "wasm32"))]
 impl Packet {
     pub fn build(raw_packet: &pcap::Packet, id: usize) -> Option<Self> {
@@ -112,22 +105,6 @@ impl Packet {
             session_protocol: SessionProtocol::Unknown,
             contents: SessionPacket::Unknown,
         })
-    }
-
-    pub fn encode(&self) -> Result<Vec<u8>, bincode::Error> {
-        // TODO: need a nicer way to temporarily get rid of payload field
-        let wo_payload = Self {
-            payload: None,
-            id: self.id,
-            timestamp: self.timestamp,
-            length: self.length,
-            source_addr: self.source_addr,
-            destination_addr: self.destination_addr,
-            transport_protocol: self.transport_protocol,
-            session_protocol: self.session_protocol,
-            contents: self.contents.clone(),
-        };
-        bincode::serialize(&wo_payload)
     }
 
     pub fn guess_payload(&mut self) {

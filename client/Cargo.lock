@@ -1724,6 +1724,7 @@ dependencies = [
  "rtcp",
  "rtp",
  "serde",
+ "webrtc-sdp",
  "webrtc-util 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -2333,6 +2334,16 @@ dependencies = [
  "raw-window-handle",
  "url",
  "web-sys",
+]
+
+[[package]]
+name = "webrtc-sdp"
+version = "0.3.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b27cfe685c697666a76932399d55026bf2a5a205d91d277fd16346f0c65a7c06"
+dependencies = [
+ "log",
+ "url",
 ]
 
 [[package]]

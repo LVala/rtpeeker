@@ -1,7 +1,7 @@
 use self::SettingsXAxis::*;
 use super::is_stream_visible;
 use crate::streams::stream::{RtpInfo, Stream};
-use crate::streams::{RefStreams, StreamKey, Streams};
+use crate::streams::{RefStreams, Streams};
 use eframe::egui;
 use eframe::egui::TextBuffer;
 use eframe::epaint::Color32;
@@ -13,6 +13,7 @@ use egui::{Align2, RichText};
 use rtpeeker_common::packet::SessionPacket;
 use rtpeeker_common::rtcp::ReceptionReport;
 use rtpeeker_common::rtp::payload_type::MediaType;
+use rtpeeker_common::StreamKey;
 use rtpeeker_common::{Packet, RtcpPacket, RtpPacket};
 use std::cell::Ref;
 use std::collections::HashMap;

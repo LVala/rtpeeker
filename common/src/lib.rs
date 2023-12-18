@@ -1,13 +1,19 @@
+use packet::TransportProtocol;
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use std::net::SocketAddr;
 
 pub use crate::rtcp::RtcpPacket;
 pub use crate::rtp::RtpPacket;
 pub use packet::Packet;
+pub use sdp::Sdp;
 
 pub mod packet;
 pub mod rtcp;
 pub mod rtp;
+pub mod sdp;
+
+pub type StreamKey = (SocketAddr, SocketAddr, TransportProtocol, u32);
 
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, Eq, PartialEq)]
 pub enum Source {
@@ -49,12 +55,14 @@ pub enum Request {
     FetchAll,
     Reparse(usize, packet::SessionProtocol),
     ChangeSource(Source),
+    ParseSdp(StreamKey, String),
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Response {
     Packet(Packet),
     Sources(Vec<Source>),
+    Sdp(StreamKey, Sdp),
 }
 
 impl Request {
