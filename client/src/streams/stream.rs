@@ -188,7 +188,7 @@ impl Stream {
         let mut rtp_packets = std::mem::take(&mut self.rtp_packets).into_iter();
         let rtp_info = rtp_packets.next().unwrap();
         self.bytes = rtp_info.bytes;
-        self.bytes = rtp_info.packet.payload_length;
+        self.rtp_bytes = rtp_info.packet.payload_length;
         self.max_jitter = 0.0;
         self.sum_jitter = 0.0;
         self.jitter_count = 0;
