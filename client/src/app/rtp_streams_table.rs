@@ -155,7 +155,7 @@ impl RtpStreamsTable {
             });
             row.col(|ui| {
                 let packet_rate = stream.get_mean_packet_rate();
-                ui.label(format!("{:.3}", packet_rate));
+                ui.label(format!("{:.1}", packet_rate));
             });
             let (_, resp) = row.col(|ui| {
                 build_jitter_plot(ui, stream);
