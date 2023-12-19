@@ -569,17 +569,18 @@ fn build_stream_points(
 }
 
 fn build_reception_report(on_hover: &mut String, report: &&ReceptionReport) {
-    on_hover.push_str("------------------------\n");
-    on_hover.push_str(&format!("SSRC: {:x}\n", report.ssrc));
-    on_hover.push_str(&format!("Fraction lost: {}\n", report.fraction_lost));
-    on_hover.push_str(&format!("Cumulative lost: {}\n", report.total_lost));
+    on_hover.push_str(&"-".repeat(160));
+    on_hover.push('\n');
+    on_hover.push_str(&format!("SSRC: {:x}\t", report.ssrc));
+    on_hover.push_str(&format!("Fraction lost: {}\t", report.fraction_lost));
+    on_hover.push_str(&format!("Cumulative lost: {}\t", report.total_lost));
     on_hover.push_str(&format!(
         "Extended highest sequence number: {}\n",
         report.last_sequence_number
     ));
-    on_hover.push_str(&format!("Interarrival jitter: {}\n", report.jitter));
+    on_hover.push_str(&format!("Interarrival jitter: {}\t", report.jitter));
     on_hover.push_str(&format!(
-        "Last SR timestamp: {}\n",
+        "Last SR timestamp: {}\t",
         report.last_sender_report
     ));
     on_hover.push_str(&format!("Delay since last SR: {}\n", report.delay));
