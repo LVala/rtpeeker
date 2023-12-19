@@ -50,6 +50,7 @@ pub struct Stream {
     pub max_jitter: f64,
     pub cname: Option<String>,
     bytes: usize,
+    rtp_bytes: usize,
     sum_jitter: f64,
     jitter_count: usize,
     first_sequence_number: u16,
@@ -86,6 +87,7 @@ impl Stream {
             rtp_packets: vec![rtp_info],
             rtcp_packets: Vec::new(),
             bytes: packet.length as usize,
+            rtp_bytes: rtp.payload_length,
             max_jitter: 0.0,
             sum_jitter: 0.0,
             jitter_count: 0,
@@ -113,8 +115,11 @@ impl Stream {
         (self.last_sequence_number + 1 - self.first_sequence_number) as usize
     }
 
-    pub fn get_mean_jitter(&self) -> f64 {
-        self.sum_jitter / self.jitter_count as f64
+    pub fn get_mean_jitter(&self) -> Option<f64> {
+        if self.jitter_count == 0 {
+            return None;
+        }
+        Some(self.sum_jitter / self.jitter_count as f64)
     }
 
     pub fn get_mean_bitrate(&self) -> f64 {
@@ -122,9 +127,19 @@ impl Stream {
         self.bytes as f64 * 8.0 / duration
     }
 
+    pub fn get_mean_rtp_bitrate(&self) -> f64 {
+        let duration = self.get_duration().as_secs_f64();
+        self.rtp_bytes as f64 * 8.0 / duration
+    }
+
     pub fn get_mean_packet_rate(&self) -> f64 {
         let duration = self.get_duration().as_secs_f64();
         self.rtp_packets.len() as f64 / duration
+    }
+
+    pub fn get_payload_type(&self) -> PayloadType {
+        let packet = self.rtp_packets.last().unwrap();
+        self.get_packet_payload_type(packet)
     }
 
     pub fn add_rtp_packet(&mut self, packet: &Packet, rtp: &RtpPacket) {
@@ -173,6 +188,7 @@ impl Stream {
         let mut rtp_packets = std::mem::take(&mut self.rtp_packets).into_iter();
         let rtp_info = rtp_packets.next().unwrap();
         self.bytes = rtp_info.bytes;
+        self.bytes = rtp_info.packet.payload_length;
         self.max_jitter = 0.0;
         self.sum_jitter = 0.0;
         self.jitter_count = 0;
@@ -193,6 +209,7 @@ impl Stream {
         self.update_rates(&mut rtp_info);
 
         self.bytes += rtp_info.bytes;
+        self.rtp_bytes += rtp_info.packet.payload_length;
 
         self.first_time = min(self.first_time, rtp_info.time);
         self.last_time = max(self.last_time, rtp_info.time);
@@ -208,7 +225,7 @@ impl Stream {
         // TODO
     }
 
-    fn get_payload_type(&self, rtp_info: &RtpInfo) -> PayloadType {
+    fn get_packet_payload_type(&self, rtp_info: &RtpInfo) -> PayloadType {
         let id = &rtp_info.packet.payload_type.id;
 
         if let Some(sdp) = &self.sdp {
@@ -221,7 +238,7 @@ impl Stream {
     }
 
     fn update_jitter(&mut self, rtp_info: &mut RtpInfo) {
-        let payload_type = self.get_payload_type(rtp_info);
+        let payload_type = self.get_packet_payload_type(rtp_info);
 
         let Some(clock_rate) = payload_type.clock_rate else {
             return;

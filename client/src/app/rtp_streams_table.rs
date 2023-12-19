@@ -74,12 +74,14 @@ impl RtpStreamsTable {
             ("SSRC", "RTP SSRC (Synchronization Source Identifier) identifies the source of an RTP stream"),
             ("Source", "Source IP address and port"),
             ("Destination", "Destination IP address and port"),
-            ("CNAME", "Source Description CNAME value, if received"),
+            ("CNAME", "Source Description CNAME value, if received (latest one if changed mid-stream"),
+            ("Payload type", "Payload type of this stream (latest one if changed mid-stream)"),
             ("Packet count", "Number of packets in stream"),
             ("Packet loss", "Percentage of packets lost"),
             ("Duration", "Difference between last timestamp and first timestamp."),
-            ("Mean jitter", "Average of jitter (in ms) for all of the packets"),
-            ("Mean bitrate", "Sum of packet sizes (IP header included) divided by stream's duration (in kbps)"),
+            ("Mean jitter", "Average of jitter for all of the packets"),
+            ("Mean bitrate", "Sum of packet sizes (IP header included) divided by stream's duration"),
+            ("Mean RTP bitrate", "Sum of packet sizes (RTP only) divided by stream's duration"),
             ("Mean packet rate", "Number of packets divided by stream's duration"),
             ("Jitter history", "Plot representing jitter for all of the stream's packets")
         ];
@@ -92,8 +94,8 @@ impl RtpStreamsTable {
             .columns(Column::initial(140.0).at_least(140.0), 2)
             .columns(Column::initial(80.0).at_least(80.0), 3)
             .column(Column::initial(70.0).at_least(70.0))
-            .columns(Column::initial(80.0).at_least(80.0), 2)
             .column(Column::initial(70.0).at_least(70.0))
+            .columns(Column::initial(80.0).at_least(80.0), 4)
             .column(Column::remainder().at_least(380.0).resizable(false))
             .header(30.0, |mut header| {
                 header_labels.iter().for_each(|(label, desc)| {
@@ -134,6 +136,10 @@ impl RtpStreamsTable {
                 ui.label(stream.cname.as_ref().unwrap_or(&"N/A".to_string()));
             });
             row.col(|ui| {
+                let pt = stream.get_payload_type();
+                ui.label(pt.id.to_string()).on_hover_text(pt.to_string());
+            });
+            row.col(|ui| {
                 ui.label(stream.rtp_packets.len().to_string());
             });
             row.col(|ui| {
@@ -143,15 +149,22 @@ impl RtpStreamsTable {
             });
             row.col(|ui| {
                 let duration = stream.get_duration().as_secs_f64();
-                ui.label(format!("{:.3}s", duration));
+                ui.label(format!("{:.2} s", duration));
             });
             row.col(|ui| {
-                let jitter = stream.get_mean_jitter() * 1000.0;
-                ui.label(format!("{:.3}ms", jitter));
+                let jitter_label = match stream.get_mean_jitter() {
+                    Some(jitter) => format!("{:.3} ms", jitter * 1000.0),
+                    None => "N/A".to_string(),
+                };
+                ui.label(jitter_label);
             });
             row.col(|ui| {
                 let bitrate = stream.get_mean_bitrate() / 1000.0;
-                ui.label(format!("{:.3}", bitrate));
+                ui.label(format!("{:.2} kbps", bitrate));
+            });
+            row.col(|ui| {
+                let bitrate = stream.get_mean_rtp_bitrate() / 1000.0;
+                ui.label(format!("{:.2} kbps", bitrate));
             });
             row.col(|ui| {
                 let packet_rate = stream.get_mean_packet_rate();
@@ -203,7 +216,7 @@ fn build_jitter_plot(ui: &mut egui::Ui, stream: &Stream) {
             .show_background(false)
             .show_axes([true, true])
             .label_formatter(|_name, value| {
-                format!("packet id: {}\njitter = {:.3}ms", value.x, value.y)
+                format!("packet id: {}\njitter = {:.3} ms", value.x, value.y)
             })
             .set_margin_fraction(Vec2::new(0.1, 0.1))
             .allow_scroll(false)
