@@ -354,42 +354,111 @@ impl RtpStreamsPlot {
         let streams = self.streams.borrow();
         let mut points_x_and_y_top: Vec<(f64, f64)> = Vec::new();
         let mut previous_stream_max_y = 0.0;
+        let mut biggest_margin = 0.0;
+        let mut previous_stream_height = 0.0;
 
-        streams.streams.iter().for_each(|(key, stream)| {
-            if !*(is_stream_visible(&mut self.streams_visibility, *key)) {
-                return;
-            }
+        streams
+            .streams
+            .iter()
+            .enumerate()
+            .for_each(|(i, (key, stream))| {
+                if !*(is_stream_visible(&mut self.streams_visibility, *key)) {
+                    return;
+                }
+                if i != 0 {
+                    let stream_highest_y_if_drawn = get_highest_y(
+                        &streams,
+                        &mut Vec::new(),
+                        stream,
+                        self.x_axis,
+                        previous_stream_max_y,
+                    );
+                    let stream_height_if_drawn = stream_highest_y_if_drawn - previous_stream_max_y;
+                    let margin = stream_height_if_drawn * 0.2 + previous_stream_height * 0.2;
+                    if biggest_margin < margin {
+                        biggest_margin = margin;
+                    }
+                };
 
-            let this_stream_y_baseline = match self.x_axis {
-                RtpTimestamp => previous_stream_max_y + 90.0,
-                RawTimestamp => previous_stream_max_y + 20.0,
-                SequenceNumer => previous_stream_max_y + 20.0,
-            };
-            self.stream_texts.push(StreamText {
-                x: 0.0,
-                y: this_stream_y_baseline,
-                on_hover: String::from(&format!("{} ({:x})  ", stream.alias, stream.ssrc)),
+                let this_stream_y_baseline = match self.x_axis {
+                    RtpTimestamp => previous_stream_max_y + biggest_margin,
+                    RawTimestamp => previous_stream_max_y + 20.0,
+                    SequenceNumer => previous_stream_max_y + 20.0,
+                };
+                self.stream_texts.push(StreamText {
+                    x: 0.0,
+                    y: this_stream_y_baseline,
+                    on_hover: String::from(&format!("{} ({:x})  ", stream.alias, stream.ssrc)),
+                });
+                if let Some((x, _)) = points_x_and_y_top.last() {
+                    self.stream_separator_lines.push(StreamSeperatorLine {
+                        x_start: 0.0,
+                        x_end: *x,
+                        y: (this_stream_y_baseline + previous_stream_max_y) / 2.0,
+                    })
+                };
+
+                build_stream_points(
+                    &streams,
+                    &mut points_x_and_y_top,
+                    stream,
+                    self.x_axis,
+                    &mut self.points_data,
+                    &mut previous_stream_max_y,
+                    &mut self.slider_max,
+                    this_stream_y_baseline,
+                );
+                previous_stream_height = previous_stream_max_y - this_stream_y_baseline;
             });
-            if let Some((x, _)) = points_x_and_y_top.last() {
-                self.stream_separator_lines.push(StreamSeperatorLine {
-                    x_start: 0.0,
-                    x_end: *x,
-                    y: (this_stream_y_baseline + previous_stream_max_y) / 2.0,
-                })
+    }
+}
+
+fn get_highest_y(
+    streams: &Ref<Streams>,
+    points_x_and_y_top: &mut Vec<(f64, f64)>,
+    stream: &Stream,
+    settings_x_axis: SettingsXAxis,
+    this_stream_y_baseline: f64,
+) -> f64 {
+    let mut highest_y = 0.0;
+    let rtp_packets = &stream.rtp_packets;
+    if rtp_packets.is_empty() {
+        return highest_y;
+    }
+
+    let first_rtp_id = rtp_packets.first().unwrap();
+    let first_packet = streams.packets.get(first_rtp_id.id).unwrap();
+    let SessionPacket::Rtp(ref first_rtp_packet) = first_packet.contents else {
+        unreachable!();
+    };
+
+    rtp_packets
+        .iter()
+        .enumerate()
+        .for_each(|(packet_ix, packet)| {
+            let previous_packet = if packet_ix == 0 {
+                None
+            } else {
+                let prev_rtp_id = rtp_packets.get(packet_ix - 1).unwrap().id;
+                streams.packets.get(prev_rtp_id)
             };
 
-            build_stream_points(
-                &streams,
-                &mut points_x_and_y_top,
-                stream,
-                self.x_axis,
-                &mut self.points_data,
-                &mut previous_stream_max_y,
-                &mut self.slider_max,
+            let (_, _, y_top) = get_x_and_y(
+                points_x_and_y_top,
+                first_rtp_packet,
+                previous_packet,
+                packet,
+                settings_x_axis,
                 this_stream_y_baseline,
+                first_packet,
             );
+            points_x_and_y_top.push((y_top, y_top));
+
+            if highest_y < y_top {
+                highest_y = y_top;
+            }
         });
-    }
+    highest_y
 }
 
 #[allow(clippy::too_many_arguments)]
