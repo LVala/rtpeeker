@@ -226,10 +226,12 @@ impl Stream {
         let id = &rtp_info.packet.payload_type.id;
         if let Some(last_payload_type) = self.payload_types.last() {
             if last_payload_type.id != *id {
-                self.payload_types.push(rtp_info.packet.payload_type.clone())
+                self.payload_types
+                    .push(rtp_info.packet.payload_type.clone())
             }
         } else {
-            self.payload_types.push(rtp_info.packet.payload_type.clone())
+            self.payload_types
+                .push(rtp_info.packet.payload_type.clone())
         }
 
         if let Some(sdp) = &self.sdp {

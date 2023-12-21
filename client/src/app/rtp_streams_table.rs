@@ -136,9 +136,17 @@ impl RtpStreamsTable {
                 ui.label(stream.cname.as_ref().unwrap_or(&"N/A".to_string()));
             });
             row.col(|ui| {
-                let pt = stream.payload_types.iter().map(|pt| pt.id.to_string()).collect::<Vec<String>>()
+                let pt = stream
+                    .payload_types
+                    .iter()
+                    .map(|pt| pt.id.to_string())
+                    .collect::<Vec<String>>()
                     .join(", ");
-                let on_hover = stream.payload_types.iter().map(|pt| pt.to_string()).collect::<Vec<String>>()
+                let on_hover = stream
+                    .payload_types
+                    .iter()
+                    .map(|pt| pt.to_string())
+                    .collect::<Vec<String>>()
                     .join("\n");
 
                 ui.label(pt).on_hover_text(on_hover);
