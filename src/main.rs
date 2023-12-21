@@ -30,7 +30,7 @@ impl RtpeekerArgs {
 
 #[derive(Debug, Subcommand)]
 enum RtpeekerSubcommands {
-    /// Run the app
+    /// Run the app. E.g "run -f rtp.pcap webex.pcap -i etn0 wireless". Obtain help with "run --help"
     Run(cmd::run::Run),
 
     /// List network interfaces

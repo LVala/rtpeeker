@@ -357,6 +357,34 @@ impl RtpStreamsPlot {
         let mut biggest_margin = 0.0;
         let mut previous_stream_height = 0.0;
 
+        let mut stream_separator_length = 0.0;
+        streams.streams.iter().for_each(|(_, stream)| {
+            let rtp_packets = &stream.rtp_packets;
+            let first_rtp_id = rtp_packets.first().unwrap();
+            let first_packet = streams.packets.get(first_rtp_id.id).unwrap();
+            let SessionPacket::Rtp(ref first_rtp_packet) = first_packet.contents else {
+                unreachable!();
+            };
+
+            for rtp_packet in &stream.rtp_packets {
+                let max_x = match self.x_axis {
+                    RtpTimestamp => {
+                        rtp_packet.packet.timestamp as f64 - first_rtp_packet.timestamp as f64
+                    }
+                    RawTimestamp => {
+                        rtp_packet.time.as_secs_f64() - first_packet.timestamp.as_secs_f64()
+                    }
+                    SequenceNumer => {
+                        rtp_packet.packet.sequence_number as f64
+                            - first_rtp_packet.sequence_number as f64
+                    }
+                };
+                if stream_separator_length < max_x {
+                    stream_separator_length = max_x
+                }
+            }
+        });
+
         streams
             .streams
             .iter()
@@ -390,10 +418,10 @@ impl RtpStreamsPlot {
                     y: this_stream_y_baseline,
                     on_hover: String::from(&format!("{} ({:x})  ", stream.alias, stream.ssrc)),
                 });
-                if let Some((x, _)) = points_x_and_y_top.last() {
+                if let Some((_, _)) = points_x_and_y_top.last() {
                     self.stream_separator_lines.push(StreamSeperatorLine {
                         x_start: 0.0,
-                        x_end: *x,
+                        x_end: stream_separator_length,
                         y: (this_stream_y_baseline + previous_stream_max_y) / 2.0,
                     })
                 };
