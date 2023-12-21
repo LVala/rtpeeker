@@ -58,6 +58,7 @@ pub struct Stream {
     first_time: Duration,
     last_time: Duration,
     sdp: Option<Sdp>,
+    pub payload_types: Vec<PayloadType>,
     // ntp synchronization
     pub ntp_rtp: Option<(u64, u32)>,
     pub estimated_clock_rate: Option<f64>,
@@ -97,6 +98,7 @@ impl Stream {
             first_time: packet.timestamp,
             last_time: packet.timestamp,
             sdp: None,
+            payload_types: Vec::new(),
             ntp_rtp: None,
             estimated_clock_rate: None,
         }
@@ -135,11 +137,6 @@ impl Stream {
     pub fn get_mean_packet_rate(&self) -> f64 {
         let duration = self.get_duration().as_secs_f64();
         self.rtp_packets.len() as f64 / duration
-    }
-
-    pub fn get_payload_type(&self) -> PayloadType {
-        let packet = self.rtp_packets.last().unwrap();
-        self.get_packet_payload_type(packet)
     }
 
     pub fn add_rtp_packet(&mut self, packet: &Packet, rtp: &RtpPacket) {
@@ -225,8 +222,15 @@ impl Stream {
         // TODO
     }
 
-    fn get_packet_payload_type(&self, rtp_info: &RtpInfo) -> PayloadType {
+    fn get_packet_payload_type(&mut self, rtp_info: &RtpInfo) -> PayloadType {
         let id = &rtp_info.packet.payload_type.id;
+        if let Some(last_payload_type) = self.payload_types.last() {
+            if last_payload_type.id != *id {
+                self.payload_types.push(rtp_info.packet.payload_type.clone())
+            }
+        } else {
+            self.payload_types.push(rtp_info.packet.payload_type.clone())
+        }
 
         if let Some(sdp) = &self.sdp {
             if let Some(pt) = sdp.payload_types.get(id) {

@@ -82,7 +82,7 @@ impl RtpStreamsTable {
             ("Mean jitter", "Average of jitter for all of the packets"),
             ("Mean bitrate", "Sum of packet sizes (IP header included) divided by stream's duration"),
             ("Mean RTP bitrate", "Sum of packet sizes (RTP only) divided by stream's duration"),
-            ("Mean packet rate", "Number of packets divided by stream's duration"),
+            ("Mean packet rate", "Number of packets divided by stream's duration in seconds"),
             ("Jitter history", "Plot representing jitter for all of the stream's packets")
         ];
         TableBuilder::new(ui)
@@ -136,8 +136,12 @@ impl RtpStreamsTable {
                 ui.label(stream.cname.as_ref().unwrap_or(&"N/A".to_string()));
             });
             row.col(|ui| {
-                let pt = stream.get_payload_type();
-                ui.label(pt.id.to_string()).on_hover_text(pt.to_string());
+                let pt = stream.payload_types.iter().map(|pt| pt.id.to_string()).collect::<Vec<String>>()
+                    .join(", ");
+                let on_hover = stream.payload_types.iter().map(|pt| pt.to_string()).collect::<Vec<String>>()
+                    .join("\n");
+
+                ui.label(pt).on_hover_text(on_hover);
             });
             row.col(|ui| {
                 ui.label(stream.rtp_packets.len().to_string());
@@ -168,7 +172,7 @@ impl RtpStreamsTable {
             });
             row.col(|ui| {
                 let packet_rate = stream.get_mean_packet_rate();
-                ui.label(format!("{:.1}", packet_rate));
+                ui.label(format!("{:.1} /s", packet_rate));
             });
             let (_, resp) = row.col(|ui| {
                 build_jitter_plot(ui, stream);

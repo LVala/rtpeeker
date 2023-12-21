@@ -14,7 +14,7 @@ pub struct Run {
     /// Network interfaces to capture the packets from
     #[arg(short, long, num_args = 1..)]
     interfaces: Vec<String>,
-    /// capture filter string in Wireshark/tcpdump syntax, applies to all sources
+    /// Capture filter string in Wireshark/tcpdump syntax, applies to all sources
     #[arg(short, long, default_value_t = String::new())]
     capture: String,
     /// IP address used by the application
