@@ -60,40 +60,39 @@ impl RtcpPacket {
 
         let packets: Vec<_> = rtcp_packets
             .into_iter()
-            .map(|(packet, packet_type)| Self::cast_to_packet(packet, packet_type))
+            .map(|packet| Self::cast_to_packet(packet))
             .collect();
 
         Some(packets)
     }
 
-    fn cast_to_packet(
-        packet: Box<dyn rtcp::packet::Packet>,
-        packet_type: rtcp::header::PacketType,
-    ) -> Self {
-        use rtcp::header::PacketType;
+    fn cast_to_packet(packet: Box<dyn rtcp::packet::Packet>) -> Self {
+        // previously, I've used the for of rtcp library
+        // but for the sake of being able to publish the crate on crates.io
+        // I've reverted the changes, so some packets might not be handled properly
+        use rtcp::goodbye::Goodbye;
+        use rtcp::receiver_report::ReceiverReport;
+        use rtcp::sender_report::SenderReport;
+        use rtcp::source_description::SourceDescription;
 
-        match packet_type {
-            PacketType::SenderReport => {
-                let pack = packet.as_any().downcast_ref().unwrap();
-                RtcpPacket::SenderReport(sender_report::SenderReport::new(pack))
-            }
-            PacketType::ReceiverReport => {
-                let pack = packet.as_any().downcast_ref().unwrap();
-                RtcpPacket::ReceiverReport(receiver_report::ReceiverReport::new(pack))
-            }
-            PacketType::SourceDescription => {
-                let pack = packet.as_any().downcast_ref().unwrap();
-                RtcpPacket::SourceDescription(source_description::SourceDescription::new(pack))
-            }
-            PacketType::Goodbye => {
-                let pack = packet.as_any().downcast_ref().unwrap();
-                RtcpPacket::Goodbye(goodbye::Goodbye::new(pack))
-            }
-            PacketType::ApplicationDefined => RtcpPacket::ApplicationDefined,
-            PacketType::PayloadSpecificFeedback => RtcpPacket::PayloadSpecificFeedback,
-            PacketType::TransportSpecificFeedback => RtcpPacket::TransportSpecificFeedback,
-            PacketType::ExtendedReport => RtcpPacket::ExtendedReport,
-            PacketType::Unsupported => RtcpPacket::Other,
+        let packet = packet.as_any();
+
+        if let Some(pack) = packet.downcast_ref::<Goodbye>() {
+            return RtcpPacket::Goodbye(goodbye::Goodbye::new(pack));
         }
+
+        if let Some(pack) = packet.downcast_ref::<ReceiverReport>() {
+            return RtcpPacket::ReceiverReport(receiver_report::ReceiverReport::new(pack));
+        }
+
+        if let Some(pack) = packet.downcast_ref::<SenderReport>() {
+            return RtcpPacket::SenderReport(sender_report::SenderReport::new(pack));
+        }
+
+        if let Some(pack) = packet.downcast_ref::<SourceDescription>() {
+            return RtcpPacket::SourceDescription(source_description::SourceDescription::new(pack));
+        }
+
+        RtcpPacket::Other
     }
 }

@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-rtpeeker_common = { path = "../common" }
+rtpeeker_common = { path = "../common", version = "0.1" }
 egui = "0.22.0"
 egui_extras = "0.22.0"
 eframe = { version = "0.22.0", default-features = false, features = [

@@ -1680,11 +1680,12 @@ checksum = "c08c74e62047bb2de4ff487b251e4a92e24f48745648451635cec7d591162d9f"
 [[package]]
 name = "rtcp"
 version = "0.10.0"
-source = "git+https://github.com/LVala/webrtc.git#4214f0c4cbc649d65a46ca50b5aed8f409463d0a"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3677908cadfbecb4cc1da9a56a32524fae4ebdfa7c2ea93886e1b1e846488cb9"
 dependencies = [
  "bytes",
  "thiserror",
- "webrtc-util 0.8.0 (git+https://github.com/LVala/webrtc.git)",
+ "webrtc-util",
 ]
 
 [[package]]
@@ -1697,7 +1698,7 @@ dependencies = [
  "rand",
  "serde",
  "thiserror",
- "webrtc-util 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "webrtc-util",
 ]
 
 [[package]]
@@ -1725,7 +1726,7 @@ dependencies = [
  "rtp",
  "serde",
  "webrtc-sdp",
- "webrtc-util 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "webrtc-util",
 ]
 
 [[package]]
@@ -2351,26 +2352,6 @@ name = "webrtc-util"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1adc96bee68417e1f4d19dd7698124a7f859db55ae2fd3eedbbb7e732f614735"
-dependencies = [
- "async-trait",
- "bitflags",
- "bytes",
- "cc",
- "ipnet",
- "lazy_static",
- "libc",
- "log",
- "nix 0.26.4",
- "rand",
- "thiserror",
- "tokio",
- "winapi",
-]
-
-[[package]]
-name = "webrtc-util"
-version = "0.8.0"
-source = "git+https://github.com/LVala/webrtc.git#4214f0c4cbc649d65a46ca50b5aed8f409463d0a"
 dependencies = [
  "async-trait",
  "bitflags",
