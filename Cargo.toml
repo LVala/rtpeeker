@@ -2,6 +2,7 @@
 name = "rtpeeker"
 version = "0.1.0"
 edition = "2021"
+include = ["/client"]
 
 [dependencies]
 rtpeeker_common = { path = "./common" }
@@ -14,5 +15,7 @@ futures-util = "0.3"
 pcap = { version = "1.0.0", features = ["capture-stream"]}
 etherparse = "0.13.0"
 clap = { version = "4", features = ["derive"] }
+rust-embed = "8.0.0"
+mime_guess = "2.0.4"
 
 # not using workspaces, as the crates use different targets
