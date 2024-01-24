@@ -120,7 +120,7 @@ impl RtpPacketsTable {
             ssrc_to_display_name.insert(*key, stream.alias.to_string());
         });
 
-        let first_ts = rtp_packets.get(0).unwrap().timestamp;
+        let first_ts = rtp_packets.first().unwrap().timestamp;
         body.rows(25.0, rtp_packets.len(), |row_ix, mut row| {
             let packet = rtp_packets.get(row_ix).unwrap();
 

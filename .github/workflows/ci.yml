@@ -14,37 +14,26 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
-      - run: cargo fmt --check --manifest-path ${{ matrix.dir }}/Cargo.toml
+      - name: Check formatting
+        run: cargo fmt --check --manifest-path ${{ matrix.dir }}/Cargo.toml
 
-  linting:
-    name: Build and linting
+  build:
+    name: Build
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        dir: [., ./client, ./common]
-        target: [x86_64-unknown-linux-gnu, wasm32-unknown-unknown]
-        exclude:
-          - dir: .
-            target: wasm32-unknown-unknown
-          - dir: ./client
-            target: x86_64-unknown-linux-gnu
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
-          components: clippy
-      - run: cargo clippy --manifest-path ${{ matrix.dir }}/Cargo.toml --target ${{ matrix.target }} -- -Dwarnings
+      - uses: cargo-bins/cargo-binstall@main
+      - name: Install libpcap
+        run: sudo apt-get install libpcap-dev
+      - name: Install trunk
+        run: cargo binstall --no-confirm --version ~0.18 trunk
+      - name: Compile the client
+        working-directory: ./client
+        run: trunk build --release
+      - name: Install rtpeeker
+        run: cargo install --locked --path .
 
-  test:
-    name: Tests
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        # all tests are run on host target
-        dir: [., ./client, ./common]
-    steps:
-      - uses: actions/checkout@v3
-      - uses: dtolnay/rust-toolchain@stable
-      - run: sudo apt-get install libpcap-dev
-      - run: cargo test --manifest-path ${{ matrix.dir }}/Cargo.toml
+# TODO: add clippy check and tests

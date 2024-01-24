@@ -2,6 +2,7 @@
 name = "rtpeeker"
 version = "0.1.0"
 edition = "2021"
+include = ["/client"]
 
 [dependencies]
 rtpeeker_common = { path = "./common" }
