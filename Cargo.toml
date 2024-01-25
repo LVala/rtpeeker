@@ -2,7 +2,14 @@
 name = "rtpeeker"
 version = "0.1.0"
 edition = "2021"
-include = ["/client"]
+license = "MIT"
+description = "RTP streams analysis and visualization tool"
+homepage = "https://github.com/LVala/rtpeeker/"
+repository = "https://github.com/LVala/rtpeeker/"
+readme = "README.md"
+keywords = ["streaming", "RTP", "networking"]
+categories = ["development-tools", "multimedia", "visualization"]
+include = ["/src/", "/dist/"]
 
 [dependencies]
 rtpeeker_common = { path = "./common", version = "0.1" }

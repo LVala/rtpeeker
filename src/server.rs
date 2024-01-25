@@ -23,7 +23,7 @@ const WS_PATH: &str = "ws";
 static NEXT_CLIENT_ID: AtomicUsize = AtomicUsize::new(1);
 
 #[derive(RustEmbed)]
-#[folder = "client/dist"]
+#[folder = "dist"]
 struct Asset;
 
 struct Client {

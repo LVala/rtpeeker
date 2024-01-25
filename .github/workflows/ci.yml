@@ -32,7 +32,7 @@ jobs:
         run: cargo binstall --no-confirm --version ~0.18 trunk
       - name: Compile the client
         working-directory: ./client
-        run: trunk build --release
+        run: trunk build --release --dist ../dist
       - name: Install rtpeeker
         run: cargo install --locked --path .
 
