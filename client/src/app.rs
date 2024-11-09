@@ -105,7 +105,6 @@ impl App {
         let rtp_streams_table = RtpStreamsTable::new(streams.clone(), ws_sender.clone());
         let rtp_streams_plot = RtpStreamsPlot::new(streams.clone());
 
-        // TODO: Pass args to the new functions
         let mpegts_packets_table = MpegTsPacketsTable::new(streams.clone());
         let mpegts_streams_table = MpegTsStreamsTable::new(streams.clone(), ws_sender.clone());
         let mpegts_info_table = MpegTsInformationsTable::new(streams.clone(), ws_sender.clone());

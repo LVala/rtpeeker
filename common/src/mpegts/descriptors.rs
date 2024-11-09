@@ -1,23 +1,21 @@
-pub mod tags;
-pub mod video_stream;
 pub mod audio_stream;
+pub mod avc_video_descriptor;
+pub mod ca_descriptor;
+pub mod copyright_descriptor;
+pub mod data_stream_alignment_descriptor;
 pub mod hierarchy;
+pub mod iso_639_language_descriptor;
 pub mod maximum_bitrate_descriptor;
 pub mod multiplex_buffer_utilization_descriptor;
-pub mod data_stream_alignment_descriptor;
-pub mod avc_video_descriptor;
-pub mod iso_639_language_descriptor;
-pub mod registration_descriptor;
-pub mod target_background_grid_descriptor;
-pub mod video_window_descriptor;
-pub mod ca_descriptor;
-pub mod system_clock_descriptor;
-pub mod copyright_descriptor;
 pub mod private_data_indicator_descriptor;
+pub mod registration_descriptor;
 pub mod std_descriptor;
+pub mod system_clock_descriptor;
+pub mod tags;
+pub mod target_background_grid_descriptor;
+pub mod video_stream;
+pub mod video_window_descriptor;
 
-use std::fmt::Debug;
-use serde::{Deserialize, Serialize};
 use crate::mpegts::descriptors::audio_stream::AudioStreamDescriptor;
 use crate::mpegts::descriptors::avc_video_descriptor::AvcVideoDescriptor;
 use crate::mpegts::descriptors::ca_descriptor::CaDescriptor;
@@ -35,6 +33,8 @@ use crate::mpegts::descriptors::tags::DescriptorTag;
 use crate::mpegts::descriptors::target_background_grid_descriptor::TargetBackgroundGridDescriptor;
 use crate::mpegts::descriptors::video_stream::VideoStreamDescriptor;
 use crate::mpegts::descriptors::video_window_descriptor::VideoWindowDescriptor;
+use serde::{Deserialize, Serialize};
+use std::fmt::Debug;
 
 const HEADER_SIZE: u8 = 2;
 
@@ -79,7 +79,9 @@ impl std::fmt::Display for Descriptors {
             Descriptors::SystemClockDescriptor(descriptor) => write!(f, "{}", descriptor),
             Descriptors::MaximumBitrateDescriptor(descriptor) => write!(f, "{}", descriptor),
             Descriptors::CopyrightDescriptor(descriptor) => write!(f, "{}", descriptor),
-            Descriptors::MultiplexBufferUtilizationDescriptor(descriptor) => write!(f, "{}", descriptor),
+            Descriptors::MultiplexBufferUtilizationDescriptor(descriptor) => {
+                write!(f, "{}", descriptor)
+            }
             Descriptors::PrivateDataIndicatorDescriptor(descriptor) => write!(f, "{}", descriptor),
             Descriptors::StdDescriptor(descriptor) => write!(f, "{}", descriptor),
             Descriptors::DataStreamAlignmentDescriptor(descriptor) => write!(f, "{}", descriptor),
@@ -97,91 +99,65 @@ impl Descriptors {
         let payload = &data[2..];
         match header.descriptor_tag {
             DescriptorTag::VideoStreamDescriptorTag => {
-                VideoStreamDescriptor::unmarshall(header, payload).map(|descriptor| {
-                    Descriptors::VideoStreamDescriptor(descriptor)
-                })
+                VideoStreamDescriptor::unmarshall(header, payload)
+                    .map(|descriptor| Descriptors::VideoStreamDescriptor(descriptor))
             }
             DescriptorTag::AudioStreamDescriptorTag => {
-                AudioStreamDescriptor::unmarshall(header, payload).map(|descriptor| {
-                    Descriptors::AudioStreamDescriptor(descriptor)
-                })
+                AudioStreamDescriptor::unmarshall(header, payload)
+                    .map(|descriptor| Descriptors::AudioStreamDescriptor(descriptor))
             }
             DescriptorTag::HierarchyDescriptorTag => {
-                HierarchyDescriptor::unmarshall(header, payload).map(|descriptor| {
-                    Descriptors::HierarchyDescriptor(descriptor)
-                })
+                HierarchyDescriptor::unmarshall(header, payload)
+                    .map(|descriptor| Descriptors::HierarchyDescriptor(descriptor))
             }
             DescriptorTag::RegistrationDescriptorTag => {
-                RegistrationDescriptor::unmarshall(header, payload).map(|descriptor| {
-                    Descriptors::RegistrationDescriptor(descriptor)
-                })
+                RegistrationDescriptor::unmarshall(header, payload)
+                    .map(|descriptor| Descriptors::RegistrationDescriptor(descriptor))
             }
             DescriptorTag::TargetBackgroundGridDescriptorTag => {
-                TargetBackgroundGridDescriptor::unmarshall(header, payload).map(|descriptor| {
-                    Descriptors::TargetBackgroundGridDescriptor(descriptor)
-                })
+                TargetBackgroundGridDescriptor::unmarshall(header, payload)
+                    .map(|descriptor| Descriptors::TargetBackgroundGridDescriptor(descriptor))
             }
             DescriptorTag::VideoWindowDescriptorTag => {
-                VideoWindowDescriptor::unmarshall(header, payload).map(|descriptor| {
-                    Descriptors::VideoWindowDescriptor(descriptor)
-                })
+                VideoWindowDescriptor::unmarshall(header, payload)
+                    .map(|descriptor| Descriptors::VideoWindowDescriptor(descriptor))
             }
-            DescriptorTag::CaDescriptorTag => {
-                CaDescriptor::unmarshall(header, payload).map(|descriptor| {
-                    Descriptors::CaDescriptor(descriptor)
-                })
-            }
+            DescriptorTag::CaDescriptorTag => CaDescriptor::unmarshall(header, payload)
+                .map(|descriptor| Descriptors::CaDescriptor(descriptor)),
             DescriptorTag::SystemClockDescriptorTag => {
-                SystemClockDescriptor::unmarshall(header, payload).map(|descriptor| {
-                    Descriptors::SystemClockDescriptor(descriptor)
-                })
+                SystemClockDescriptor::unmarshall(header, payload)
+                    .map(|descriptor| Descriptors::SystemClockDescriptor(descriptor))
             }
             DescriptorTag::MaximumBitrateDescriptorTag => {
-                MaximumBitrateDescriptor::unmarshall(header, payload).map(|descriptor| {
-                    Descriptors::MaximumBitrateDescriptor(descriptor)
-                })
+                MaximumBitrateDescriptor::unmarshall(header, payload)
+                    .map(|descriptor| Descriptors::MaximumBitrateDescriptor(descriptor))
             }
             DescriptorTag::CopyrightDescriptorTag => {
-                CopyrightDescriptor::unmarshall(header, payload).map(|descriptor| {
-                    Descriptors::CopyrightDescriptor(descriptor)
-                })
+                CopyrightDescriptor::unmarshall(header, payload)
+                    .map(|descriptor| Descriptors::CopyrightDescriptor(descriptor))
             }
             DescriptorTag::MultiplexBufferUtilizationDescriptorTag => {
-                MultiplexBufferUtilizationDescriptor::unmarshall(header, payload).map(|descriptor| {
-                    Descriptors::MultiplexBufferUtilizationDescriptor(descriptor)
-                })
+                MultiplexBufferUtilizationDescriptor::unmarshall(header, payload)
+                    .map(|descriptor| Descriptors::MultiplexBufferUtilizationDescriptor(descriptor))
             }
             DescriptorTag::PrivateDataIndicatorDescriptorTag => {
-                PrivateDataIndicatorDescriptor::unmarshall(header, payload).map(|descriptor| {
-                    Descriptors::PrivateDataIndicatorDescriptor(descriptor)
-                })
+                PrivateDataIndicatorDescriptor::unmarshall(header, payload)
+                    .map(|descriptor| Descriptors::PrivateDataIndicatorDescriptor(descriptor))
             }
-            DescriptorTag::StdDescriptorTag => {
-                StdDescriptor::unmarshall(header, payload).map(|descriptor| {
-                    Descriptors::StdDescriptor(descriptor)
-                })
-            }
+            DescriptorTag::StdDescriptorTag => StdDescriptor::unmarshall(header, payload)
+                .map(|descriptor| Descriptors::StdDescriptor(descriptor)),
             DescriptorTag::DataStreamAlignmentDescriptorTag => {
-                DataStreamAlignmentDescriptor::unmarshall(header, payload).map(|descriptor| {
-                    Descriptors::DataStreamAlignmentDescriptor(descriptor)
-                })
+                DataStreamAlignmentDescriptor::unmarshall(header, payload)
+                    .map(|descriptor| Descriptors::DataStreamAlignmentDescriptor(descriptor))
             }
-            DescriptorTag::AvcVideoDescriptorTag => {
-                AvcVideoDescriptor::unmarshall(header, payload).map(|descriptor| {
-                    Descriptors::AvcVideoDescriptor(descriptor)
-                })
-            }
+            DescriptorTag::AvcVideoDescriptorTag => AvcVideoDescriptor::unmarshall(header, payload)
+                .map(|descriptor| Descriptors::AvcVideoDescriptor(descriptor)),
             DescriptorTag::Iso639LanguageDescriptorTag => {
-                Iso639LanguageDescriptor::unmarshall(header, payload).map(|descriptor| {
-                    Descriptors::Iso639LanguageDescriptor(descriptor)
-                })
+                Iso639LanguageDescriptor::unmarshall(header, payload)
+                    .map(|descriptor| Descriptors::Iso639LanguageDescriptor(descriptor))
             }
-            DescriptorTag::UserPrivate => {
-                Some(Descriptors::UserPrivate(data[0]))
-            }
-            _ => {
-                Some(Descriptors::Unknown)
-            }
+            DescriptorTag::UserPrivate => Some(Descriptors::UserPrivate(data[0])),
+            _ => Some(Descriptors::Unknown),
         }
     }
     pub fn unmarshall_many(data: &[u8]) -> Vec<Self> {
@@ -189,7 +165,10 @@ impl Descriptors {
         let mut offset = 0;
         while offset < data.len() {
             let header = DescriptorHeader::unmarshall(&data[offset..]);
-            Self::unmarshall(&data[offset..(header.descriptor_length + HEADER_SIZE) as usize + offset]).map(|descriptor| {
+            Self::unmarshall(
+                &data[offset..(header.descriptor_length + HEADER_SIZE) as usize + offset],
+            )
+            .map(|descriptor| {
                 descriptors.push(descriptor);
             });
             offset += (HEADER_SIZE + header.descriptor_length) as usize;
@@ -219,22 +198,50 @@ impl DescriptorHeader {
 impl PartialEq for Descriptors {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Descriptors::VideoStreamDescriptor(a), Descriptors::VideoStreamDescriptor(b)) => a == b,
-            (Descriptors::AudioStreamDescriptor(a), Descriptors::AudioStreamDescriptor(b)) => a == b,
+            (Descriptors::VideoStreamDescriptor(a), Descriptors::VideoStreamDescriptor(b)) => {
+                a == b
+            }
+            (Descriptors::AudioStreamDescriptor(a), Descriptors::AudioStreamDescriptor(b)) => {
+                a == b
+            }
             (Descriptors::HierarchyDescriptor(a), Descriptors::HierarchyDescriptor(b)) => a == b,
-            (Descriptors::RegistrationDescriptor(a), Descriptors::RegistrationDescriptor(b)) => a == b,
-            (Descriptors::TargetBackgroundGridDescriptor(a), Descriptors::TargetBackgroundGridDescriptor(b)) => a == b,
-            (Descriptors::VideoWindowDescriptor(a), Descriptors::VideoWindowDescriptor(b)) => a == b,
+            (Descriptors::RegistrationDescriptor(a), Descriptors::RegistrationDescriptor(b)) => {
+                a == b
+            }
+            (
+                Descriptors::TargetBackgroundGridDescriptor(a),
+                Descriptors::TargetBackgroundGridDescriptor(b),
+            ) => a == b,
+            (Descriptors::VideoWindowDescriptor(a), Descriptors::VideoWindowDescriptor(b)) => {
+                a == b
+            }
             (Descriptors::CaDescriptor(a), Descriptors::CaDescriptor(b)) => a == b,
-            (Descriptors::SystemClockDescriptor(a), Descriptors::SystemClockDescriptor(b)) => a == b,
-            (Descriptors::MaximumBitrateDescriptor(a), Descriptors::MaximumBitrateDescriptor(b)) => a == b,
+            (Descriptors::SystemClockDescriptor(a), Descriptors::SystemClockDescriptor(b)) => {
+                a == b
+            }
+            (
+                Descriptors::MaximumBitrateDescriptor(a),
+                Descriptors::MaximumBitrateDescriptor(b),
+            ) => a == b,
             (Descriptors::CopyrightDescriptor(a), Descriptors::CopyrightDescriptor(b)) => a == b,
-            (Descriptors::MultiplexBufferUtilizationDescriptor(a), Descriptors::MultiplexBufferUtilizationDescriptor(b)) => a == b,
-            (Descriptors::PrivateDataIndicatorDescriptor(a), Descriptors::PrivateDataIndicatorDescriptor(b)) => a == b,
+            (
+                Descriptors::MultiplexBufferUtilizationDescriptor(a),
+                Descriptors::MultiplexBufferUtilizationDescriptor(b),
+            ) => a == b,
+            (
+                Descriptors::PrivateDataIndicatorDescriptor(a),
+                Descriptors::PrivateDataIndicatorDescriptor(b),
+            ) => a == b,
             (Descriptors::StdDescriptor(a), Descriptors::StdDescriptor(b)) => a == b,
-            (Descriptors::DataStreamAlignmentDescriptor(a), Descriptors::DataStreamAlignmentDescriptor(b)) => a == b,
+            (
+                Descriptors::DataStreamAlignmentDescriptor(a),
+                Descriptors::DataStreamAlignmentDescriptor(b),
+            ) => a == b,
             (Descriptors::AvcVideoDescriptor(a), Descriptors::AvcVideoDescriptor(b)) => a == b,
-            (Descriptors::Iso639LanguageDescriptor(a), Descriptors::Iso639LanguageDescriptor(b)) => a == b,
+            (
+                Descriptors::Iso639LanguageDescriptor(a),
+                Descriptors::Iso639LanguageDescriptor(b),
+            ) => a == b,
             (Descriptors::UserPrivate(a), Descriptors::UserPrivate(b)) => a == b,
             (Descriptors::Unknown, Descriptors::Unknown) => true,
             _ => false,

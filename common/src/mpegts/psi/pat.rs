@@ -65,11 +65,13 @@ impl ProgramAssociationTable {
     fn unmarshal_programs(data: &[u8]) -> Vec<ProgramAssociationItem> {
         let mut programs = Vec::new();
         let mut index = 0;
-        while index < data.len() - 4 { // Skip CRC-32
+        while index < data.len() - 4 {
+            // Skip CRC-32
             let program_number = ((data[index] as u16) << 8) | data[index + 1] as u16;
             if program_number == 0 {
                 // 0xrrrnnnnn nnnnnnnn; r = reserved, n = network_pid
-                let network_pid = ((data[index + 2] & PROGRAM_PID_UPPER_MASK) as u16) << 8 | data[index + 3] as u16;
+                let network_pid = ((data[index + 2] & PROGRAM_PID_UPPER_MASK) as u16) << 8
+                    | data[index + 3] as u16;
                 programs.push(ProgramAssociationItem {
                     program_number,
                     network_pid: Some(network_pid),
@@ -80,7 +82,8 @@ impl ProgramAssociationTable {
             }
             // 0xrrrppppp pppppppp; r - reserved, p = program_map_pid
 
-            let program_map_pid = (((data[index + 2] & PROGRAM_PID_UPPER_MASK) as u16) << 8) | data[index + 3] as u16;
+            let program_map_pid =
+                (((data[index + 2] & PROGRAM_PID_UPPER_MASK) as u16) << 8) | data[index + 3] as u16;
 
             programs.push(ProgramAssociationItem {
                 program_number,
@@ -93,9 +96,10 @@ impl ProgramAssociationTable {
     }
 
     fn unmarshal_crc_32(data: &[u8]) -> u32 {
-        let crc_32 = ((data[data.len() - 4] as u32) << 24) | ((data[data.len() - 3] as u32) << 16) | ((data[data.len() - 2] as u32) << 8) | data[data.len() - 1] as u32;
+        let crc_32 = ((data[data.len() - 4] as u32) << 24)
+            | ((data[data.len() - 3] as u32) << 16)
+            | ((data[data.len() - 2] as u32) << 8)
+            | data[data.len() - 1] as u32;
         crc_32
     }
 }
-
-

@@ -1,10 +1,11 @@
 use super::is_stream_visible;
 use crate::streams::RefStreams;
 use egui_extras::{Column, TableBody, TableBuilder};
-use rtpeeker_common::StreamKey;
-use std::collections::HashMap;
+use rtpeeker_common::mpegts::header::PIDTable;
 use rtpeeker_common::mpegts::FRAGMENT_SIZE;
 use rtpeeker_common::packet::SessionPacket;
+use rtpeeker_common::StreamKey;
+use std::collections::HashMap;
 
 pub struct MpegTsPacketsTable {
     streams: RefStreams,
@@ -92,14 +93,14 @@ impl MpegTsPacketsTable {
             .values()
             .filter(|packet| {
                 let SessionPacket::Mpegts(ref mpegts_packet) = packet.contents else {
-                    return false
+                    return false;
                 };
 
                 let key = (
                     packet.source_addr,
                     packet.destination_addr,
                     packet.transport_protocol,
-                    0 //TODO: change
+                    0, //TODO: change
                 );
 
                 *is_stream_visible(&mut self.streams_visibility, key)
@@ -145,33 +146,50 @@ impl MpegTsPacketsTable {
                 ui.label(packet.destination_addr.to_string());
             });
 
+            let mut labels = mpegts_packet
+                .fragments
+                .iter()
+                .map(|fragment| match fragment.header.pid {
+                    PIDTable::ProgramAssociation => String::from("ProgramAssociation"),
+                    PIDTable::ConditionalAccess => String::from("ConditionalAccess"),
+                    PIDTable::TransportStreamDescription => {
+                        String::from("TransportStreamDescription")
+                    }
+                    PIDTable::AdaptiveStreamingInformation => {
+                        String::from("AdaptiveStreamingInformation")
+                    }
+                    PIDTable::NullPacket => String::from("NullPacket"),
+                    PIDTable::PID(pid) => format!("PID: {}", pid),
+                    PIDTable::IPMPControlInformation => String::from("IPMPControlInformation"),
+                })
+                .into_iter();
 
             row.col(|ui| {
-                ui.label("PAT");
+                ui.label(labels.next().unwrap_or_default());
             });
 
             row.col(|ui| {
-                ui.label("PAT");
+                ui.label(labels.next().unwrap_or_default());
             });
 
             row.col(|ui| {
-                ui.label("PAT");
+                ui.label(labels.next().unwrap_or_default());
             });
 
             row.col(|ui| {
-                ui.label("PAT");
+                ui.label(labels.next().unwrap_or_default());
             });
 
             row.col(|ui| {
-                ui.label("PAT");
+                ui.label(labels.next().unwrap_or_default());
             });
 
             row.col(|ui| {
-                ui.label("PAT");
+                ui.label(labels.next().unwrap_or_default());
             });
 
             row.col(|ui| {
-                ui.label("PAT");
+                ui.label(labels.next().unwrap_or_default());
             });
 
             row.col(|ui| {

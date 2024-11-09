@@ -2,10 +2,9 @@ pub mod fragmentary_pmt;
 pub mod pmt_buffer;
 mod stream_types;
 
-use serde::{Deserialize, Serialize};
 use crate::mpegts::descriptors::Descriptors;
 use crate::mpegts::psi::pmt::stream_types::StreamTypes;
-
+use serde::{Deserialize, Serialize};
 
 pub const HEADER_AFTER_SECTION_LENGTH_SIZE: usize = 9;
 
@@ -84,7 +83,11 @@ impl PartialEq for ElementaryStreamInfo {
 }
 
 impl ProgramMapTable {
-    fn build(fields: PmtFields, descriptors_payload: &[u8], payload: &[u8]) -> Option<ProgramMapTable> {
+    fn build(
+        fields: PmtFields,
+        descriptors_payload: &[u8],
+        payload: &[u8],
+    ) -> Option<ProgramMapTable> {
         Some(ProgramMapTable {
             fields,
             descriptors: ProgramMapTable::unmarshal_descriptors(descriptors_payload),
@@ -94,7 +97,6 @@ impl ProgramMapTable {
     }
 
     fn unmarshal_descriptors(data: &[u8]) -> Vec<Descriptors> {
-
         Descriptors::unmarshall_many(data)
     }
 
@@ -102,15 +104,22 @@ impl ProgramMapTable {
         let mut elementary_streams_info = Vec::new();
         let mut index = 0;
 
-        while index + STREAM_LENGTH <= data.len() - 4 { // Skip CRC-32
+        while index + STREAM_LENGTH <= data.len() - 4 {
+            // Skip CRC-32
             let stream_type = data[index];
-            let elementary_pid = (((data[index + 1] & ELEMENTARY_PID_UPPER_MASK as u8) as u16) << 8) | (data[index + 2] & ELEMENTARY_PID_LOWER_MASK as u8) as u16;
-            let es_info_length = (((data[index + 3] & ES_INFO_LENGTH_UPPER_MASK as u8) as u16) << 8) | (data[index + 4] & ES_INFO_LENGTH_LOWER_MASK as u8) as u16;
+            let elementary_pid = (((data[index + 1] & ELEMENTARY_PID_UPPER_MASK as u8) as u16)
+                << 8)
+                | (data[index + 2] & ELEMENTARY_PID_LOWER_MASK as u8) as u16;
+            let es_info_length = (((data[index + 3] & ES_INFO_LENGTH_UPPER_MASK as u8) as u16)
+                << 8)
+                | (data[index + 4] & ES_INFO_LENGTH_LOWER_MASK as u8) as u16;
             elementary_streams_info.push(ElementaryStreamInfo {
                 stream_type: StreamTypes::from(stream_type),
                 elementary_pid,
                 es_info_length,
-                descriptors: Descriptors::unmarshall_many(&data[index + STREAM_LENGTH..index + STREAM_LENGTH + es_info_length as usize]),
+                descriptors: Descriptors::unmarshall_many(
+                    &data[index + STREAM_LENGTH..index + STREAM_LENGTH + es_info_length as usize],
+                ),
             });
 
             index += STREAM_LENGTH + es_info_length as usize;
@@ -121,6 +130,9 @@ impl ProgramMapTable {
 
     fn unmarshal_crc_32(data: &[u8]) -> u32 {
         let crc_32_index = data.len() - 4;
-        ((data[crc_32_index] as u32) << 24) | ((data[crc_32_index + 1] as u32) << 16) | ((data[crc_32_index + 2] as u32) << 8) | data[crc_32_index + 3] as u32
+        ((data[crc_32_index] as u32) << 24)
+            | ((data[crc_32_index + 1] as u32) << 16)
+            | ((data[crc_32_index + 2] as u32) << 8)
+            | data[crc_32_index + 3] as u32
     }
 }

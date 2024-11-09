@@ -1,4 +1,9 @@
-use rtpeeker_common::packet::TransportProtocol;
+use log::warn;
+use rtpeeker_common::mpegts::aggregator::MpegtsAggregator;
+use rtpeeker_common::mpegts::header::PIDTable;
+use rtpeeker_common::mpegts::psi::pat::fragmentary_pat::FragmentaryProgramAssociationTable;
+use rtpeeker_common::mpegts::psi::psi_buffer::{FragmentaryPsi, PsiBuffer};
+use rtpeeker_common::packet::{SessionPacket, TransportProtocol};
 use rtpeeker_common::{MpegtsPacket, Packet};
 use std::cmp::{max, min};
 use std::net::SocketAddr;
@@ -30,18 +35,45 @@ pub struct MpegTsStream {
     pub protocol: TransportProtocol,
     pub alias: String,
     pub mpegts_packets: Vec<MpegTsInfo>,
+    pub mpegts_aggregator: MpegtsAggregator,
     first_time: Duration,
     last_time: Duration,
 }
 
 impl MpegTsStream {
     pub fn new(packet: &Packet, mpegts: &MpegtsPacket, default_alias: String) -> Self {
+        let mut mpegts_aggregator = MpegtsAggregator::new();
         let mpegts_packet = MpegTsInfo {
             packet: mpegts.clone(),
             id: packet.id,
             time: packet.timestamp,
             time_delta: Duration::from_secs(0),
         };
+
+        if let SessionPacket::Mpegts(mpegts) = packet.clone().contents {
+            mpegts.fragments.iter().for_each(|fragment| {
+                if let PIDTable::ProgramAssociation = fragment.header.pid {
+                    if fragment.payload.is_none() {
+                        return;
+                    }
+                    let payload = fragment.clone().payload.unwrap().data;
+                    let pat_fragment = FragmentaryProgramAssociationTable::unmarshall(
+                        &*payload,
+                        fragment.header.payload_unit_start_indicator,
+                    );
+                    if pat_fragment.is_none() {
+                        return;
+                    }
+                    let pat_fragment = pat_fragment.unwrap();
+
+                    mpegts_aggregator
+                        .pat_buffer
+                        .set_last_section_number(pat_fragment.header.last_section_number);
+
+                    mpegts_aggregator.pat_buffer.add_fragment(pat_fragment);
+                }
+            });
+        }
 
         Self {
             source_addr: packet.source_addr,
@@ -51,6 +83,7 @@ impl MpegTsStream {
             first_time: packet.timestamp,
             last_time: packet.timestamp,
             mpegts_packets: vec![mpegts_packet],
+            mpegts_aggregator,
         }
     }
 
@@ -70,6 +103,9 @@ impl MpegTsStream {
             time: packet.timestamp,
             time_delta: Duration::from_secs(0),
         };
+
+        self.determine_type(packet);
+
         self.update_mpegts_parameters(mpegts_info);
     }
 
@@ -93,5 +129,32 @@ impl MpegTsStream {
         self.mpegts_packets = vec![mpegts_info];
 
         mpegts_packets.for_each(|rtp| self.update_mpegts_parameters(rtp));
+    }
+
+    fn determine_type(&mut self, packet: &Packet) {
+        if let SessionPacket::Mpegts(mpegts) = packet.clone().contents {
+            mpegts.fragments.iter().for_each(|fragment| {
+
+                if let PIDTable::ProgramAssociation = fragment.header.pid {
+                    if fragment.payload.is_none() {
+                        return;
+                    }
+                    let payload = fragment.clone().payload.unwrap().data;
+                    let pat_fragment = FragmentaryProgramAssociationTable::unmarshall(
+                        &*payload,
+                        fragment.header.payload_unit_start_indicator,
+                    );
+                    if pat_fragment.is_none() {
+                        return;
+                    }
+                    let pat_fragment = pat_fragment.unwrap();
+                    self.mpegts_aggregator
+                        .pat_buffer
+                        .set_last_section_number(pat_fragment.header.last_section_number);
+
+                    self.mpegts_aggregator.pat_buffer.add_fragment(pat_fragment);
+                }
+            });
+        }
     }
 }
